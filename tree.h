@@ -20,6 +20,13 @@ typedef struct Node {
     struct Node* right;
 } Node;
 
+// is [key1, key1+size1) inside [key2, key2+size2)
+static bool
+contained(uint64_t key1, uint64_t size1, uint64_t key2, uint64_t size2)
+{
+    return key1 >= key2 && key1 + size1 <= key2 + size2;
+}
+
 // Put a node corresponding to [key, key+size) into the tree. Uses 'allocn' as
 // the memory for the node (pre-allocated). The node is associated with 'info'.
 void tput(Tree* t, uint64_t key, uint64_t size, Node* allocn, MMInfo info);
@@ -40,9 +47,9 @@ Node* tsearchcontains(Tree* t, uint64_t key, uint64_t size);
 Node* tsearchend(Tree* t, uint64_t end);
 
 // Return the number of nodes that overlap with [key, key+size).
-size_t tnoverlaps(Tree* t, uint64_t key, uint64_t size);
+size_t tnumoverlaps(Tree* t, uint64_t key, uint64_t size);
 
-typedef void (*OverlapFn)(Tree* t, uint64_t key, uint64_t size, Node* n);
-
-// Find nodes that overlap with [key, key+size) and call cb for each of them.
-void toverlaps(Tree* t, uint64_t key, uint64_t size, OverlapFn cb);
+// Find nodes that overlap with [key, key+size) and return copies of them. The
+// 'nodes' array must be pre-allocated with the correct number of overlapping
+// nodes (and also passed via 'noverlaps' for assertion purposes)
+void toverlaps(Tree* t, uint64_t key, uint64_t size, Node** nodes, size_t noverlaps);

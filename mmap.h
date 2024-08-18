@@ -11,6 +11,8 @@ typedef struct {
 } Tree;
 
 typedef struct {
+    // For internal use only. These values do not correspond exactly to the
+    // values used to initialize the address space.
     uint64_t base;
     size_t len;
     size_t p2pagesize;

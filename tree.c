@@ -14,6 +14,8 @@ static Node* nbalance(Node* n);
 static Node* nrotateright(Node* n);
 static Node* nrotateleft(Node* n);
 static Node* nfindsmallest(Node* n);
+static size_t nnumoverlaps(Node* n, uint64_t key, uint64_t size);
+static size_t noverlaps(Node* n, uint64_t key, uint64_t size, Node** nodes, size_t nnodes, size_t nodecount);
 static uint64_t max(uint64_t a, uint64_t b);
 
 void
@@ -52,6 +54,18 @@ Node*
 tsearchend(Tree* t, uint64_t end)
 {
     return nsearchend(t->root, end);
+}
+
+size_t
+tnumoverlaps(Tree* t, uint64_t key, uint64_t size)
+{
+    return nnumoverlaps(t->root, key, size);
+}
+
+void
+toverlaps(Tree* t, uint64_t key, uint64_t size, Node** nodes, size_t nnodes)
+{
+    noverlaps(t->root, key, size, nodes, nnodes, 0);
 }
 
 static Node*
@@ -157,11 +171,19 @@ nsearchsize(Node* n, uint64_t size)
     return NULL;
 }
 
-// is [key1, key1+size1) inside [key2, key2+size2)
-static bool
-contained(uint64_t key1, uint64_t size1, uint64_t key2, uint64_t size2)
+static Node*
+nsearchend(Node* n, uint64_t end)
 {
-    return key1 >= key2 && key1 + size1 <= key2 + size2;
+    if (!n)
+        return NULL;
+
+    if (n->key + n->size == end)
+        return n;
+    else if (n->left && n->left->maxend >= end)
+        return nsearchend(n->left, end);
+    else if (n->right && n->right->maxend >= end)
+        return nsearchend(n->right, end);
+    return NULL;
 }
 
 static Node*
@@ -179,20 +201,41 @@ nsearchcontains(Node* n, uint64_t key, uint64_t size)
     return NULL;
 }
 
-static Node*
-nsearchend(Node* n, uint64_t end)
+static bool
+overlaps(uint64_t key1, uint64_t size1, uint64_t key2, uint64_t size2)
 {
-    if (!n)
-        return NULL;
-
-    if (n->key + n->size == end)
-        return n;
-    else if (n->left && n->left->maxend >= end)
-        return nsearchend(n->left, end);
-    else if (n->right && n->right->maxend >= end)
-        return nsearchend(n->right, end);
-    return NULL;
+    return key1 < key2 + size2 && key1 + size1 > key2;
 }
+
+static size_t
+nnumoverlaps(Node* n, uint64_t key, uint64_t size)
+{
+    if (!n || key >= n->maxend)
+        return 0;
+    size_t c = nnumoverlaps(n->left, key, size);
+    if (overlaps(key, size, n->key, n->size))
+        c++;
+    if (key + size <= n->key)
+        return c;
+    return c + nnumoverlaps(n->right, key, size);
+}
+
+static size_t
+noverlaps(Node* n, uint64_t key, uint64_t size, Node** nodes, size_t nnodes, size_t nodecount)
+{
+    if (!n || key >= n->maxend)
+        return nodecount;
+    nodecount += noverlaps(n->left, key, size, nodes, nnodes, nodecount);
+    if (overlaps(key, size, n->key, n->size)) {
+        assert(nodecount < nnodes);
+        *nodes[nodecount] = *n;
+        nodecount++;
+    }
+    if (key + size <= n->key)
+        return nodecount;
+    return nodecount + noverlaps(n->right, key, size, nodes, nnodes, nodecount);
+}
+
 
 static void
 nupdate(Node* n)

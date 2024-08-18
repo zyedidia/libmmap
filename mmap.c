@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <errno.h>
@@ -234,31 +235,108 @@ mm_protect(MMAddrSpace* mm, uint64_t addr, size_t length, int prot)
     addr = mmtrunc(mm, addr);
     length = mmceil(mm, length);
 
-    Node* n = tsearchcontains(&mm->alloc, addr, length);
-    if (!n)
+    // Check that region doesn't overlap with unmapped pages.
+    size_t nfree = tnumoverlaps(&mm->free, addr, length);
+    if (nfree > 0)
         return -EINVAL;
-    if (n->val.prot == prot)
-        return 0; // no update necessary
 
-    uint64_t nkey = n->key;
-    uint64_t nsize = n->size;
-    MMInfo ninfo = n->val;
+    // How many allocated nodes does this region overlap with?
+    size_t noverlap = tnumoverlaps(&mm->alloc, addr, length);
 
-    Node* before;
-    Node* after;
-    if (!allocsplit(nkey, nsize, addr, length, &before, &after))
-        return -ENOMEM;
+    if (noverlap == 1) {
+        // Only overlaps with a single region. This means the requested region
+        // is exactly the overlapping one, or is contained inside the
+        // overlapping one.
+        Node* n = tsearchcontains(&mm->alloc, addr, length);
+        assert(n);
+        if (n->val.prot == prot)
+            return 0; // no update necessary
+        if (n->key == addr && n->size == length) {
+            // exact match
+            n->val.prot = prot;
+            return 0;
+        }
 
-    Node* rm = tremove(&mm->alloc, nkey);
-    assert(rm);
-    if (before)
-        tput(&mm->alloc, nkey, addr - nkey, before, ninfo);
-    if (after)
-        tput(&mm->alloc, addr + length, (nkey + nsize) - (addr + length), after, ninfo);
+        uint64_t nkey = n->key;
+        uint64_t nsize = n->size;
+        MMInfo ninfo = n->val;
 
-    // now put the modified region in
-    ninfo.prot = prot;
-    tput(&mm->alloc, addr, length, rm, ninfo);
+        // have to split the containing region
+        Node* before;
+        Node* after;
+        if (!allocsplit(nkey, nsize, addr, length, &before, &after))
+            return -ENOMEM;
+
+        Node* rm = tremove(&mm->alloc, nkey);
+        assert(rm);
+        if (before)
+            tput(&mm->alloc, nkey, addr - nkey, before, ninfo);
+        if (after)
+            tput(&mm->alloc, addr + length, (nkey + nsize) - (addr + length), after, ninfo);
+
+        // now put the modified region in
+        ninfo.prot = prot;
+        tput(&mm->alloc, addr, length, rm, ninfo);
+        return 0;
+    }
+
+    // The requested region overlaps with multiple existing regions. In the
+    // worst case, we have to split two regions (start and end of the
+    // overlapping area).
+
+    Node* before = malloc(sizeof(Node));
+    Node* after = malloc(sizeof(Node));
+    if (!before || !after)
+        goto err;
+
+    bool needsbefore = false;
+    bool needsafter = false;
+
+    Node** ovnodes = malloc(sizeof(Node*) * noverlap);
+    if (!ovnodes)
+        goto err;
+
+    toverlaps(&mm->alloc, addr, length, ovnodes, noverlap);
+    if (!ovnodes)
+        goto err;
+
+    for (size_t i = 0; i < noverlap; i++) {
+        uint64_t ovkey = ovnodes[i]->key;
+        uint64_t ovsize = ovnodes[i]->size;
+        MMInfo ovinfo = ovnodes[i]->val;
+        MMInfo newinfo = ovinfo;
+        newinfo.prot = prot;
+        if (contained(ovkey, ovsize, addr, length)) {
+            tsearchaddr(&mm->alloc, ovkey)->val.prot = prot;
+        } else if (ovkey < addr) {
+            assert(ovkey + ovsize < addr + length);
+            // split before region
+            Node* rm = tremove(&mm->alloc, ovkey);
+            // put the part outside the requested region back
+            tput(&mm->alloc, ovkey, addr - ovkey, rm, ovinfo);
+            // put the newly allocated split node in
+            tput(&mm->alloc, addr, ovsize - (addr - ovkey), before, newinfo);
+            needsbefore = true;
+        } else if (ovkey + ovsize > addr + length) {
+            assert(ovkey > addr);
+            // split after region, similar to the before case
+            Node* rm = tremove(&mm->alloc, ovkey);
+            tput(&mm->alloc, addr + length, (ovkey + ovsize) - (addr + length), rm, ovinfo);
+            tput(&mm->alloc, ovkey, (addr + length) - ovkey, after, newinfo);
+            needsafter = true;
+        }
+        free(ovnodes[i]);
+    }
+    free(ovnodes);
+
+    if (!needsbefore)
+        free(before);
+    if (!needsafter)
+        free(after);
 
     return 0;
+err:
+    free(before);
+    free(after);
+    return -ENOMEM;
 }
