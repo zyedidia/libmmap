@@ -26,9 +26,9 @@ typedef struct {
 // subset of pages from a mapping.
 
 // mm_init initializes the memory mapper for the given virtual address region
-// and page size.
+// and page size. The page size must be a power of 2.
 //
-// Returns false if the memory mapper was unable to initialize.
+// Returns false if the memory mapper was unable to initialize (no memory).
 bool mm_init(MMAddrSpace* mm, uint64_t start, size_t len, size_t pagesize);
 
 // mm_mapany creates a new mapping, where the mapper may choose the location.
@@ -62,5 +62,5 @@ bool mm_query(MMAddrSpace* mm, uint64_t addr, size_t len, MMInfo* info);
 
 // mm_protect updates the 'prot' info associated with a region.
 //
-// Returns false if the requested region is invalid.
-bool mm_protect(MMAddrSpace* mm, uint64_t addr, size_t len, int prot);
+// Returns 0 on success or a negative error code on failure.
+int mm_protect(MMAddrSpace* mm, uint64_t addr, size_t len, int prot);

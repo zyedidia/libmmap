@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "tree.h"
 
@@ -72,8 +73,7 @@ getpow(uint64_t x)
 bool
 mm_init(MMAddrSpace* mm, uint64_t start, size_t len, size_t pagesize)
 {
-    if (!ispow2(pagesize))
-        return false;
+    assert(ispow2(pagesize));
     mm->p2pagesize = getpow(pagesize);
     mm->base = start >> mm->p2pagesize;
     mm->len = len >> mm->p2pagesize;
@@ -112,6 +112,8 @@ mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t off
         .offset = offset,
     });
 
+    assert(nkey << mm->p2pagesize != MM_MAPERR);
+
     return nkey << mm->p2pagesize;
 }
 
@@ -143,10 +145,11 @@ allocsplit(uint64_t nkey, uint64_t nsize, uint64_t addr, uint64_t length, Node**
 uint64_t
 mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
+    if (addr % (1 << mm->p2pagesize) != 0)
+        return (uint64_t) -1;
     addr = mmtrunc(mm, addr);
     length = mmceil(mm, length);
 
-    // TODO: allow overlaps with existing regions (just overwrite existing regions)
     Node* n = tsearchcontains(&mm->free, addr, length);
     if (!n)
         return (uint64_t) -1;
@@ -180,6 +183,8 @@ mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int
 int
 mm_unmap(MMAddrSpace* mm, uint64_t addr, size_t length)
 {
+    if (addr % (1 << mm->p2pagesize) != 0 || length == 0)
+        return -EINVAL;
     addr = mmtrunc(mm, addr);
     length = mmceil(mm, length);
 
@@ -193,7 +198,7 @@ mm_unmap(MMAddrSpace* mm, uint64_t addr, size_t length)
     Node* before;
     Node* after;
     if (!allocsplit(nkey, nsize, addr, length, &before, &after))
-        return -2;
+        return -ENOMEM;
 
     Node* rm = tremove(&mm->alloc, nkey);
     assert(rm);
@@ -209,7 +214,8 @@ mm_unmap(MMAddrSpace* mm, uint64_t addr, size_t length)
 bool
 mm_query(MMAddrSpace* mm, uint64_t addr, size_t length, MMInfo* info)
 {
-    addr = mmtrunc(mm, addr);
+    if (addr % (1 << mm->p2pagesize) != 0)
+        return false;
     length = mmceil(mm, length);
 
     Node* n = tsearchcontains(&mm->alloc, addr, length);
@@ -220,17 +226,19 @@ mm_query(MMAddrSpace* mm, uint64_t addr, size_t length, MMInfo* info)
     return true;
 }
 
-bool
+int
 mm_protect(MMAddrSpace* mm, uint64_t addr, size_t length, int prot)
 {
+    if (addr % (1 << mm->p2pagesize) != 0)
+        return -EINVAL;
     addr = mmtrunc(mm, addr);
     length = mmceil(mm, length);
 
     Node* n = tsearchcontains(&mm->alloc, addr, length);
     if (!n)
-        return false;
+        return -EINVAL;
     if (n->val.prot == prot)
-        return true; // no update necessary
+        return 0; // no update necessary
 
     uint64_t nkey = n->key;
     uint64_t nsize = n->size;
@@ -239,7 +247,7 @@ mm_protect(MMAddrSpace* mm, uint64_t addr, size_t length, int prot)
     Node* before;
     Node* after;
     if (!allocsplit(nkey, nsize, addr, length, &before, &after))
-        return -2;
+        return -ENOMEM;
 
     Node* rm = tremove(&mm->alloc, nkey);
     assert(rm);
@@ -252,5 +260,5 @@ mm_protect(MMAddrSpace* mm, uint64_t addr, size_t length, int prot)
     ninfo.prot = prot;
     tput(&mm->alloc, addr, length, rm, ninfo);
 
-    return true;
+    return 0;
 }
