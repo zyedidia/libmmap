@@ -14,7 +14,9 @@ location. The library works by maintaining two augmented AVL trees, one for
 free regions and one for allocated regions. This makes it easy to support both
 allocation anyhwere and allocation at a fixed location, and to support
 tracking/updating information about allocated regions, such as their current
-protection.
+protection. Care has also been taken to make sure that the library behaves well
+when there isn't enough memory. The state of the AVL trees always remains
+consistent even if allocations fail during an operation.
 
 # API
 

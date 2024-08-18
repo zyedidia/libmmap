@@ -5,19 +5,17 @@
 #include "tree.h"
 
 static uint64_t
-mmtruncpg(MMAddrSpace* mm, uint64_t addr)
+mmtrunc(MMAddrSpace* mm, uint64_t addr)
 {
-    uint64_t align = 1 << mm->p2pagesize;
-    uint64_t align_mask = align - 1;
-    return addr & ~align_mask;
+    return addr >> mm->p2pagesize;
 }
 
 static uint64_t
-mmceilpg(MMAddrSpace* mm, uint64_t addr)
+mmceil(MMAddrSpace* mm, uint64_t addr)
 {
     uint64_t align = 1 << mm->p2pagesize;
     uint64_t align_mask = align - 1;
-    return (addr + align_mask) & ~align_mask;
+    return ((addr + align_mask) & ~align_mask) >> mm->p2pagesize;
 }
 
 static void
@@ -69,7 +67,7 @@ mm_init(MMAddrSpace* mm, uint64_t start, size_t len, size_t pagesize)
 uint64_t
 mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t offset)
 {
-    length = mmceilpg(mm, length) >> mm->p2pagesize;
+    length = mmceil(mm, length);
     Node* n = tsearchsize(&mm->free, length);
     if (!n)
         return (uint64_t) -1;
@@ -123,8 +121,8 @@ allocsplit(uint64_t nkey, uint64_t nsize, uint64_t addr, uint64_t length, Node**
 uint64_t
 mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
-    addr = mmtruncpg(mm, addr) >> mm->p2pagesize;
-    length = mmceilpg(mm, length) >> mm->p2pagesize;
+    addr = mmtrunc(mm, addr);
+    length = mmceil(mm, length);
 
     // TODO: allow overlaps with existing regions (just overwrite existing regions)
     Node* n = tsearchcontains(&mm->free, addr, length);
@@ -141,12 +139,10 @@ mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int
 
     Node* rm = tremove(&mm->free, nkey);
     assert(rm);
-    if (before) {
+    if (before)
         tput(&mm->free, nkey, addr - nkey, before, (MMInfo){});
-    }
-    if (after) {
+    if (after)
         tput(&mm->free, addr + length, (nkey + nsize) - (addr + length), after, (MMInfo){});
-    }
     tput(&mm->alloc, addr, length, rm, (MMInfo) {
         .prot = prot,
         .flags = flags,
@@ -160,8 +156,8 @@ mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int
 int
 mm_unmap(MMAddrSpace* mm, uint64_t addr, size_t length)
 {
-    addr = mmtruncpg(mm, addr) >> mm->p2pagesize;
-    length = mmceilpg(mm, length) >> mm->p2pagesize;
+    addr = mmtrunc(mm, addr);
+    length = mmceil(mm, length);
 
     Node* n = tsearchcontains(&mm->alloc, addr, length);
     if (!n)
@@ -189,8 +185,8 @@ mm_unmap(MMAddrSpace* mm, uint64_t addr, size_t length)
 bool
 mm_query(MMAddrSpace* mm, uint64_t addr, size_t length, MMInfo* info)
 {
-    addr = mmtruncpg(mm, addr) >> mm->p2pagesize;
-    length = mmceilpg(mm, length) >> mm->p2pagesize;
+    addr = mmtrunc(mm, addr);
+    length = mmceil(mm, length);
 
     Node* n = tsearchcontains(&mm->alloc, addr, length);
     if (!n)
@@ -203,8 +199,8 @@ mm_query(MMAddrSpace* mm, uint64_t addr, size_t length, MMInfo* info)
 bool
 mm_protect(MMAddrSpace* mm, uint64_t addr, size_t length, int prot)
 {
-    addr = mmtruncpg(mm, addr) >> mm->p2pagesize;
-    length = mmceilpg(mm, length) >> mm->p2pagesize;
+    addr = mmtrunc(mm, addr);
+    length = mmceil(mm, length);
 
     Node* n = tsearchcontains(&mm->alloc, addr, length);
     if (!n)

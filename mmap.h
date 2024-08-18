@@ -19,6 +19,8 @@ typedef struct {
     Tree alloc;
 } MMAddrSpace;
 
+#define MM_MAPERR ((uint64_t)-1)
+
 // mm_init initializes the memory mapper for the given virtual address region
 // and page size.
 //
