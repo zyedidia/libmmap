@@ -15,19 +15,17 @@ int main() {
     assert(ok);
 
     uint64_t r;
-    r = mm_mapat(&mm, 3, 8, PROT_NONE, 0, 0, 0);
+    r = mm_mapat(&mm, 3, 8, PROT_SOME, 0, 0, 0);
     assert(r != MM_MAPERR);
     int i;
-    i = mm_protect(&mm, 0, 5, PROT_SOME);
-    assert(i == -EINVAL);
-    MMInfo info;
-    mm_querypage(&mm, 4, &info);
-    assert(info.prot == PROT_NONE);
-    i = mm_protect(&mm, 5, 3, PROT_SOME);
+    i = mm_unmap(&mm, 4, 9);
     assert(i == 0);
-    mm_querypage(&mm, 4, &info);
-    assert(info.prot == PROT_NONE);
-    mm_querypage(&mm, 5, &info);
+    bool b;
+    b = mm_querypage(&mm, 4, NULL);
+    assert(!b);
+    MMInfo info;
+    b = mm_querypage(&mm, 3, &info);
+    assert(b);
     assert(info.prot == PROT_SOME);
 
     return 0;

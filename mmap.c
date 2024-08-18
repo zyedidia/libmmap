@@ -55,6 +55,82 @@ insertmerge(Tree* t, uint64_t key, uint64_t size, Node* allocn, MMInfo info)
     }
 }
 
+typedef void (*OverlapFn)(Node* n, void* udata, void* uudata);
+
+static int
+iterateoverlaps(Tree* tfrom, Tree* tto, uint64_t addr, size_t length, size_t noverlap, OverlapFn fn, void* udata, void* uudata)
+{
+    // The requested region overlaps with multiple existing regions. In the
+    // worst case, we have to split two regions (start and end of the
+    // overlapping area).
+
+    Node* before = malloc(sizeof(Node));
+    Node* after = malloc(sizeof(Node));
+    if (!before || !after)
+        goto err1;
+
+    Node** ovnodes = calloc(1, sizeof(Node*) * noverlap);
+    if (!ovnodes)
+        goto err1;
+    for (size_t i = 0; i < noverlap; i++) {
+        ovnodes[i] = malloc(sizeof(Node));
+        if (!ovnodes[i])
+            goto err2;
+    }
+
+    bool needsbefore = false;
+    bool needsafter = false;
+
+    toverlaps(tfrom, addr, length, ovnodes, noverlap);
+
+    for (size_t i = 0; i < noverlap; i++) {
+        uint64_t ovkey = ovnodes[i]->key;
+        uint64_t ovsize = ovnodes[i]->size;
+        MMInfo ovinfo = ovnodes[i]->val;
+        if (contained(ovkey, ovsize, addr, length)) {
+            Node* rm = tremove(tfrom, ovkey);
+            tput(tto, ovkey, ovsize, rm, ovinfo);
+            fn(rm, udata, uudata);
+        } else if (ovkey < addr) {
+            assert(ovkey + ovsize < addr + length);
+            // split before region
+            Node* rm = tremove(tfrom, ovkey);
+            // put the part outside the requested region back
+            tput(tfrom, ovkey, addr - ovkey, rm, ovinfo);
+            // put the newly allocated split node in
+            tput(tto, addr, ovsize - (addr - ovkey), before, ovinfo);
+            fn(before, udata, uudata);
+            needsbefore = true;
+        } else if (ovkey + ovsize > addr + length) {
+            assert(ovkey > addr);
+            // split after region, similar to the before case
+            Node* rm = tremove(tfrom, ovkey);
+            tput(tfrom, addr + length, (ovkey + ovsize) - (addr + length), rm, ovinfo);
+            tput(tto, ovkey, (addr + length) - ovkey, after, ovinfo);
+            fn(after, udata, uudata);
+            needsafter = true;
+        }
+        free(ovnodes[i]);
+    }
+    free(ovnodes);
+
+    if (!needsbefore)
+        free(before);
+    if (!needsafter)
+        free(after);
+
+    return 0;
+err2:
+    for (size_t i = 0; i < noverlap; i++) {
+        free(ovnodes[i]);
+    }
+    free(ovnodes);
+err1:
+    free(before);
+    free(after);
+    return -ENOMEM;
+}
+
 static bool
 ispow2(uint64_t x)
 {
@@ -143,17 +219,51 @@ allocsplit(uint64_t nkey, uint64_t nsize, uint64_t addr, uint64_t length, Node**
     return true;
 }
 
+typedef struct {
+    UpdateFn fn;
+    MMInfo info;
+} UpdateData;
+
+static void
+cbmapat(Node* n, void* udata, void* uudata)
+{
+    UpdateData* data = (UpdateData*) udata;
+    n->val = data->info;
+    if (data->fn)
+        data->fn(n->key, n->size, n->val, uudata);
+}
+
 uint64_t
 mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
+    return mm_mapat_cb(mm, addr, length, prot, flags, fd, offset, NULL, NULL);
+}
+
+uint64_t
+mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int fd, off_t offset, UpdateFn ufn, void* udata)
+{
     if (addr % (1 << mm->p2pagesize) != 0)
-        return (uint64_t) -1;
+        return MM_MAPERR;
     addr = mmtrunc(mm, addr);
     length = mmceil(mm, length);
 
     Node* n = tsearchcontains(&mm->free, addr, length);
-    if (!n)
-        return (uint64_t) -1;
+    if (!n) {
+        size_t noverlap = tnumoverlaps(&mm->alloc, addr, length);
+        assert(noverlap > 0); // must overlap some allocated region
+        UpdateData data = (UpdateData) {
+            .fn = ufn,
+            .info = (MMInfo) {
+                .base = addr << mm->p2pagesize,
+                .len = length << mm->p2pagesize,
+                .prot = prot,
+                .flags = flags,
+                .fd = fd,
+                .offset = offset,
+            },
+        };
+        return iterateoverlaps(&mm->alloc, &mm->alloc, addr, length, noverlap, cbmapat, &data, udata);
+    }
 
     uint64_t nkey = n->key;
     uint64_t nsize = n->size;
@@ -161,7 +271,7 @@ mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int
     Node* before;
     Node* after;
     if (!allocsplit(nkey, nsize, addr, length, &before, &after))
-        return (uint64_t) -1;
+        return MM_MAPERR;
 
     Node* rm = tremove(&mm->free, nkey);
     assert(rm);
@@ -181,8 +291,22 @@ mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int
     return addr << mm->p2pagesize;
 }
 
+static void
+cbunmap(Node* n, void* udata, void* uudata)
+{
+    UpdateFn fn = (UpdateFn) udata;
+    if (fn)
+        fn(n->key, n->size, n->val, uudata);
+}
+
 int
 mm_unmap(MMAddrSpace* mm, uint64_t addr, size_t length)
+{
+    return mm_unmap_cb(mm, addr, length, NULL, NULL);
+}
+
+int
+mm_unmap_cb(MMAddrSpace* mm, uint64_t addr, size_t length, UpdateFn ufn, void* udata)
 {
     if (addr % (1 << mm->p2pagesize) != 0 || length == 0)
         return -EINVAL;
@@ -190,8 +314,15 @@ mm_unmap(MMAddrSpace* mm, uint64_t addr, size_t length)
     length = mmceil(mm, length);
 
     Node* n = tsearchcontains(&mm->alloc, addr, length);
-    if (!n)
-        return -1;
+    if (!n) {
+        size_t noverlap = tnumoverlaps(&mm->alloc, addr, length);
+        if (noverlap == 0)
+            return -1;
+        // unmap portions of overlapping regions
+        return iterateoverlaps(&mm->alloc, &mm->free, addr, length, noverlap, cbunmap, ufn, udata);
+    }
+
+    // Unmap part of a single node.
     uint64_t nkey = n->key;
     uint64_t nsize = n->size;
     MMInfo ninfo = n->val;
@@ -213,13 +344,12 @@ mm_unmap(MMAddrSpace* mm, uint64_t addr, size_t length)
 }
 
 bool
-mm_query(MMAddrSpace* mm, uint64_t addr, size_t length, MMInfo* info)
+mm_querypage(MMAddrSpace* mm, uint64_t addr, MMInfo* info)
 {
     if (addr % (1 << mm->p2pagesize) != 0)
         return false;
-    length = mmceil(mm, length);
 
-    Node* n = tsearchcontains(&mm->alloc, addr, length);
+    Node* n = tsearchcontains(&mm->alloc, addr, 1);
     if (!n)
         return false;
     if (info)
@@ -227,8 +357,28 @@ mm_query(MMAddrSpace* mm, uint64_t addr, size_t length, MMInfo* info)
     return true;
 }
 
+typedef struct {
+    UpdateFn fn;
+    int prot;
+} ProtectData;
+
+static void
+cbprotect(Node* n, void* udata, void* uudata)
+{
+    ProtectData* data = (ProtectData*) udata;
+    n->val.prot = data->prot;
+    if (data->fn)
+        data->fn(n->key, n->size, n->val, uudata);
+}
+
 int
 mm_protect(MMAddrSpace* mm, uint64_t addr, size_t length, int prot)
+{
+    return mm_protect_cb(mm, addr, length, prot, NULL, NULL);
+}
+
+int
+mm_protect_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, UpdateFn ufn, void* udata)
 {
     if (addr % (1 << mm->p2pagesize) != 0)
         return -EINVAL;
@@ -280,63 +430,10 @@ mm_protect(MMAddrSpace* mm, uint64_t addr, size_t length, int prot)
         return 0;
     }
 
-    // The requested region overlaps with multiple existing regions. In the
-    // worst case, we have to split two regions (start and end of the
-    // overlapping area).
+    ProtectData data = (ProtectData) {
+        .fn = ufn,
+        .prot = prot,
+    };
 
-    Node* before = malloc(sizeof(Node));
-    Node* after = malloc(sizeof(Node));
-    if (!before || !after)
-        goto err;
-
-    bool needsbefore = false;
-    bool needsafter = false;
-
-    Node** ovnodes = malloc(sizeof(Node*) * noverlap);
-    if (!ovnodes)
-        goto err;
-
-    toverlaps(&mm->alloc, addr, length, ovnodes, noverlap);
-    if (!ovnodes)
-        goto err;
-
-    for (size_t i = 0; i < noverlap; i++) {
-        uint64_t ovkey = ovnodes[i]->key;
-        uint64_t ovsize = ovnodes[i]->size;
-        MMInfo ovinfo = ovnodes[i]->val;
-        MMInfo newinfo = ovinfo;
-        newinfo.prot = prot;
-        if (contained(ovkey, ovsize, addr, length)) {
-            tsearchaddr(&mm->alloc, ovkey)->val.prot = prot;
-        } else if (ovkey < addr) {
-            assert(ovkey + ovsize < addr + length);
-            // split before region
-            Node* rm = tremove(&mm->alloc, ovkey);
-            // put the part outside the requested region back
-            tput(&mm->alloc, ovkey, addr - ovkey, rm, ovinfo);
-            // put the newly allocated split node in
-            tput(&mm->alloc, addr, ovsize - (addr - ovkey), before, newinfo);
-            needsbefore = true;
-        } else if (ovkey + ovsize > addr + length) {
-            assert(ovkey > addr);
-            // split after region, similar to the before case
-            Node* rm = tremove(&mm->alloc, ovkey);
-            tput(&mm->alloc, addr + length, (ovkey + ovsize) - (addr + length), rm, ovinfo);
-            tput(&mm->alloc, ovkey, (addr + length) - ovkey, after, newinfo);
-            needsafter = true;
-        }
-        free(ovnodes[i]);
-    }
-    free(ovnodes);
-
-    if (!needsbefore)
-        free(before);
-    if (!needsafter)
-        free(after);
-
-    return 0;
-err:
-    free(before);
-    free(after);
-    return -ENOMEM;
+    return iterateoverlaps(&mm->alloc, &mm->alloc, addr, length, noverlap, cbprotect, &data, udata);
 }

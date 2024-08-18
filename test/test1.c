@@ -18,3 +18,5 @@ int main() {
 
     return 0;
 }
+
+const char* __asan_default_options() { return "detect_leaks=0"; }

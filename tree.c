@@ -21,12 +21,14 @@ static uint64_t max(uint64_t a, uint64_t b);
 void
 tput(Tree* t, uint64_t key, uint64_t size, Node* allocn, MMInfo info)
 {
+    /* printf("%p: put %ld %ld\n", t, key, size); */
     t->root = nadd(t->root, key, size, allocn, info);
 }
 
 Node*
 tremove(Tree* t, uint64_t key)
 {
+    /* printf("%p: remove %ld\n", t, key); */
     Node* removed = NULL;
     t->root = nremove(t->root, key, &removed);
     return removed;
