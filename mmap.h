@@ -21,6 +21,10 @@ typedef struct {
 
 #define MM_MAPERR ((uint64_t)-1)
 
+// Note: there is a distinction between 'mappings' and 'regions'. A mapping is
+// a set of pages originally created with 'mapany' or 'mapat'. A region is a
+// subset of pages from a mapping.
+
 // mm_init initializes the memory mapper for the given virtual address region
 // and page size.
 //
@@ -37,23 +41,26 @@ uint64_t mm_mapany(MMAddrSpace* mm, size_t len, int prot, int flags, int fd, off
 // The address is returned, or -1 if an error occurred.
 uint64_t mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t len, int prot, int flags, int fd, off_t offset);
 
-// mm_unmap removes pages from a mapping, or returns < 0 if an error occurred.
+// mm_unmap unmaps a region, or returns < 0 if an error occurred.
 int mm_unmap(MMAddrSpace* mm, uint64_t addr, size_t len);
 
 typedef struct {
+    // base address of the mapping (not the region)
+    uint64_t base;
+    // length of the mapping
+    size_t len;
     int prot;
     int flags;
     int fd;
     off_t offset;
 } MMInfo;
 
-// mm_query looks up information about pages from a mapping and places it in
-// 'info'.
+// mm_query looks up information about a region and places it in 'info'.
 //
 // Returns false if the requested region is invalid.
 bool mm_query(MMAddrSpace* mm, uint64_t addr, size_t len, MMInfo* info);
 
-// mm_protect updates the 'prot' info associated with a region of a mapping.
+// mm_protect updates the 'prot' info associated with a region.
 //
 // Returns false if the requested region is invalid.
 bool mm_protect(MMAddrSpace* mm, uint64_t addr, size_t len, int prot);

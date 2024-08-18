@@ -21,15 +21,35 @@ mmceil(MMAddrSpace* mm, uint64_t addr)
 static void
 insertmerge(Tree* t, uint64_t key, uint64_t size, Node* allocn, MMInfo info)
 {
-    Node* n = tsearchaddr(t, key + size);
-    if (!n) {
-        tput(t, key, size, allocn, info);
-    } else {
-        uint64_t nsize = n->size;
-        // combine with n
-        n = tremove(t, key + size);
-        tput(t, key, size + nsize, n, info);
+    Node* nafter = tsearchaddr(t, key + size);
+    Node* nbefore = tsearchend(t, key);
+
+    if (nbefore && nafter) {
+        // combine with both nbefore and nafter
+        uint64_t beforekey = nbefore->key;
+        uint64_t beforesize = nbefore->size;
+        uint64_t aftersize = nafter->size;
+
+        nbefore = tremove(t, nbefore->key);
+        nafter = tremove(t, nafter->key);
+        tput(t, beforekey, beforesize + size + aftersize, nbefore, info);
         free(allocn);
+        free(nafter);
+    } else if (nafter) {
+        uint64_t nsize = nafter->size;
+        // combine with nafter
+        nafter = tremove(t, key + size);
+        tput(t, key, size + nsize, nafter, info);
+        free(allocn);
+    } else if (nbefore) {
+        uint64_t nkey = nbefore->key;
+        uint64_t nsize = nbefore->size;
+        // combine with nbefore
+        nbefore = tremove(t, nkey);
+        tput(t, nkey, size + nsize, nbefore, info);
+        free(allocn);
+    } else {
+        tput(t, key, size, allocn, info);
     }
 }
 
@@ -84,6 +104,8 @@ mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t off
         tput(&mm->free, nkey + length, nsize - length, rm, (MMInfo){});
     }
     tput(&mm->alloc, nkey, length, alloced, (MMInfo) {
+        .base = nkey << mm->p2pagesize,
+        .len = length << mm->p2pagesize,
         .prot = prot,
         .flags = flags,
         .fd = fd,
@@ -144,6 +166,8 @@ mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int
     if (after)
         tput(&mm->free, addr + length, (nkey + nsize) - (addr + length), after, (MMInfo){});
     tput(&mm->alloc, addr, length, rm, (MMInfo) {
+        .base = addr << mm->p2pagesize,
+        .len = length << mm->p2pagesize,
         .prot = prot,
         .flags = flags,
         .fd = fd,

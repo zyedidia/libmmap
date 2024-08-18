@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <assert.h>
 
 #include "tree.h"
@@ -10,6 +9,7 @@ static Node* nremove(Node* n, uint64_t key, Node** removed);
 static Node* nsearchaddr(Node* n, uint64_t key);
 static Node* nsearchsize(Node* n, uint64_t size);
 static Node* nsearchcontains(Node* n, uint64_t key, uint64_t size);
+static Node* nsearchend(Node* n, uint64_t key);
 static Node* nbalance(Node* n);
 static Node* nrotateright(Node* n);
 static Node* nrotateleft(Node* n);
@@ -46,6 +46,12 @@ Node*
 tsearchcontains(Tree* t, uint64_t key, uint64_t size)
 {
     return nsearchcontains(t->root, key, size);
+}
+
+Node*
+tsearchend(Tree* t, uint64_t end)
+{
+    return nsearchend(t->root, end);
 }
 
 static Node*
@@ -164,13 +170,27 @@ nsearchcontains(Node* n, uint64_t key, uint64_t size)
     if (!n)
         return NULL;
 
-    printf("%ld %ld %ld %ld = %d\n", key, size, n->key, n->size, contained(key, size, n->key, n->size));
     if (contained(key, size, n->key, n->size))
         return n;
     else if (n->left && contained(key, size, n->left->key, n->left->maxend))
         return nsearchcontains(n->left, key, size);
     else if (n->right && contained(key, size, n->right->key, n->right->maxend))
         return nsearchcontains(n->right, key, size);
+    return NULL;
+}
+
+static Node*
+nsearchend(Node* n, uint64_t end)
+{
+    if (!n)
+        return NULL;
+
+    if (n->key + n->size == end)
+        return n;
+    else if (n->left && n->left->maxend >= end)
+        return nsearchend(n->left, end);
+    else if (n->right && n->right->maxend >= end)
+        return nsearchend(n->right, end);
     return NULL;
 }
 
