@@ -11,8 +11,10 @@ writing a kernel).
 
 The libmmap API supports requests to map pages at any location, or at a fixed
 location. The library works by maintaining two augmented AVL trees, one for
-free regions and one for allocated regions. This makes it easy to support
-allocation anyhwere, and allocation at a fixed location.
+free regions and one for allocated regions. This makes it easy to support both
+allocation anyhwere and allocation at a fixed location, and to support
+tracking/updating information about allocated regions, such as their current
+protection.
 
 # API
 

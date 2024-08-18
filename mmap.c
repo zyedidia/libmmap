@@ -95,6 +95,31 @@ mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t off
     return nkey << mm->p2pagesize;
 }
 
+static bool
+allocsplit(uint64_t nkey, uint64_t nsize, uint64_t addr, uint64_t length, Node** before, Node** after)
+{
+    bool needsbefore = nkey < addr;
+    bool needsafter = nkey + nsize > addr + length;
+
+    // pre-allocate nodes before modifying the tree in case we don't have enough memory
+    *before = NULL;
+    *after = NULL;
+    if (needsbefore) {
+        *before = malloc(sizeof(Node));
+        if (!*before)
+            return false;
+    }
+    if (needsafter) {
+        *after = malloc(sizeof(Node));
+        if (!*after) {
+            if (needsbefore)
+                free(*before);
+            return false;
+        }
+    }
+    return true;
+}
+
 uint64_t
 mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
@@ -109,32 +134,17 @@ mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int
     uint64_t nkey = n->key;
     uint64_t nsize = n->size;
 
-    bool needsbefore = nkey < addr;
-    bool needsafter = nkey + nsize > addr + length;
-
-    // pre-allocate nodes before modifying the tree in case we don't have enough memory
-    Node* before = NULL;
-    Node* after = NULL;
-    if (needsbefore) {
-        before = malloc(sizeof(Node));
-        if (!before)
-            return (uint64_t) -1;
-    }
-    if (needsafter) {
-        after = malloc(sizeof(Node));
-        if (!after) {
-            if (needsbefore)
-                free(before);
-            return (uint64_t) -1;
-        }
-    }
+    Node* before;
+    Node* after;
+    if (!allocsplit(nkey, nsize, addr, length, &before, &after))
+        return (uint64_t) -1;
 
     Node* rm = tremove(&mm->free, nkey);
     assert(rm);
-    if (needsbefore) {
+    if (before) {
         tput(&mm->free, nkey, addr - nkey, before, (MMInfo){});
     }
-    if (needsafter) {
+    if (after) {
         tput(&mm->free, addr + length, (nkey + nsize) - (addr + length), after, (MMInfo){});
     }
     tput(&mm->alloc, addr, length, rm, (MMInfo) {
@@ -160,30 +170,16 @@ mm_unmap(MMAddrSpace* mm, uint64_t addr, size_t length)
     uint64_t nsize = n->size;
     MMInfo ninfo = n->val;
 
-    bool needsbefore = nkey < addr;
-    bool needsafter = nkey + nsize > addr + length;
-
-    Node* before = NULL;
-    Node* after = NULL;
-    if (needsbefore) {
-        Node* before = malloc(sizeof(Node));
-        if (!before)
-            return -2;
-    }
-    if (needsafter) {
-        Node* after = malloc(sizeof(Node));
-        if (!after) {
-            if (needsbefore)
-                free(before);
-            return -2;
-        }
-    }
+    Node* before;
+    Node* after;
+    if (!allocsplit(nkey, nsize, addr, length, &before, &after))
+        return -2;
 
     Node* rm = tremove(&mm->alloc, nkey);
     assert(rm);
-    if (needsbefore)
+    if (before)
         tput(&mm->alloc, nkey, addr - nkey, before, ninfo);
-    if (needsafter)
+    if (after)
         tput(&mm->alloc, addr + length, (nkey + nsize) - (addr + length), after, ninfo);
     insertmerge(&mm->free, addr, length, rm, ninfo);
 
@@ -213,6 +209,28 @@ mm_protect(MMAddrSpace* mm, uint64_t addr, size_t length, int prot)
     Node* n = tsearchcontains(&mm->alloc, addr, length);
     if (!n)
         return false;
-    n->val.prot = prot;
+    if (n->val.prot == prot)
+        return true; // no update necessary
+
+    uint64_t nkey = n->key;
+    uint64_t nsize = n->size;
+    MMInfo ninfo = n->val;
+
+    Node* before;
+    Node* after;
+    if (!allocsplit(nkey, nsize, addr, length, &before, &after))
+        return -2;
+
+    Node* rm = tremove(&mm->alloc, nkey);
+    assert(rm);
+    if (before)
+        tput(&mm->alloc, nkey, addr - nkey, before, ninfo);
+    if (after)
+        tput(&mm->alloc, addr + length, (nkey + nsize) - (addr + length), after, ninfo);
+
+    // now put the modified region in
+    ninfo.prot = prot;
+    tput(&mm->alloc, addr, length, rm, ninfo);
+
     return true;
 }
