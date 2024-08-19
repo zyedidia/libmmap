@@ -157,7 +157,7 @@ mm_init(MMAddrSpace* mm, uint64_t start, size_t len, size_t pagesize)
     Node* n = malloc(sizeof(Node));
     if (!n)
         return false;
-    tput(&mm->free, mm->base, mm->len, n, (MMInfo){});
+    tput(&mm->free, mm->base, mm->len, n, (MMInfo){0});
     return true;
 }
 
@@ -178,7 +178,7 @@ mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t off
     Node* rm = tremove(&mm->free, n->key);
     assert(rm);
     if (n->size > length) {
-        tput(&mm->free, nkey + length, nsize - length, rm, (MMInfo){});
+        tput(&mm->free, nkey + length, nsize - length, rm, (MMInfo){0});
     }
     tput(&mm->alloc, nkey, length, alloced, (MMInfo) {
         .base = nkey << mm->p2pagesize,
@@ -276,9 +276,9 @@ mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, 
     Node* rm = tremove(&mm->free, nkey);
     assert(rm);
     if (before)
-        tput(&mm->free, nkey, addr - nkey, before, (MMInfo){});
+        tput(&mm->free, nkey, addr - nkey, before, (MMInfo){0});
     if (after)
-        tput(&mm->free, addr + length, (nkey + nsize) - (addr + length), after, (MMInfo){});
+        tput(&mm->free, addr + length, (nkey + nsize) - (addr + length), after, (MMInfo){0});
     tput(&mm->alloc, addr, length, rm, (MMInfo) {
         .base = addr << mm->p2pagesize,
         .len = length << mm->p2pagesize,
@@ -291,12 +291,16 @@ mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, 
     return addr << mm->p2pagesize;
 }
 
+typedef struct {
+    UpdateFn fn;
+} UnmapData;
+
 static void
 cbunmap(Node* n, void* udata, void* uudata)
 {
-    UpdateFn fn = (UpdateFn) udata;
-    if (fn)
-        fn(n->key, n->size, n->val, uudata);
+    UnmapData* data = (UnmapData*) udata;
+    if (data->fn)
+        data->fn(n->key, n->size, n->val, uudata);
 }
 
 int
@@ -319,7 +323,10 @@ mm_unmap_cb(MMAddrSpace* mm, uint64_t addr, size_t length, UpdateFn ufn, void* u
         if (noverlap == 0)
             return -1;
         // unmap portions of overlapping regions
-        return iterateoverlaps(&mm->alloc, &mm->free, addr, length, noverlap, cbunmap, ufn, udata);
+        UnmapData data = (UnmapData) {
+            .fn = ufn,
+        };
+        return iterateoverlaps(&mm->alloc, &mm->free, addr, length, noverlap, cbunmap, &data, udata);
     }
 
     // Unmap part of a single node.
@@ -338,6 +345,8 @@ mm_unmap_cb(MMAddrSpace* mm, uint64_t addr, size_t length, UpdateFn ufn, void* u
         tput(&mm->alloc, nkey, addr - nkey, before, ninfo);
     if (after)
         tput(&mm->alloc, addr + length, (nkey + nsize) - (addr + length), after, ninfo);
+    if (ufn)
+        ufn(addr, length, ninfo, udata);
     insertmerge(&mm->free, addr, length, rm, ninfo);
 
     return 0;
@@ -427,6 +436,8 @@ mm_protect_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, UpdateFn 
         // now put the modified region in
         ninfo.prot = prot;
         tput(&mm->alloc, addr, length, rm, ninfo);
+        if (ufn)
+            ufn(addr, length, ninfo, udata);
         return 0;
     }
 

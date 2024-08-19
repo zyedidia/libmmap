@@ -1,4 +1,4 @@
-project('libmmap', ['c'], default_options: ['warning_level=1', 'buildtype=debugoptimized', 'b_sanitize=address,undefined'], meson_version: '>= 0.56.0')
+project('libmmap', ['c'], default_options: ['warning_level=3', 'buildtype=debugoptimized'], meson_version: '>= 0.56.0')
 
 srcs = files(
   'mmap.c',
