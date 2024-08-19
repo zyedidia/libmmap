@@ -413,6 +413,8 @@ mm_protect_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, UpdateFn 
         if (n->key == addr && n->size == length) {
             // exact match
             n->val.prot = prot;
+            if (ufn)
+                ufn(addr, length, n->val, udata);
             return 0;
         }
 
