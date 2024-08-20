@@ -98,7 +98,7 @@ iterateoverlaps(Tree* tfrom, Tree* tto, uint64_t addr, size_t length, size_t nov
             tput(tto, ovkey, ovsize, rm, ovinfo);
             fn(rm, udata, uudata);
         } else if (ovkey < addr) {
-            assert(ovkey + ovsize < addr + length);
+            assert(ovkey + ovsize <= addr + length);
             // split before region
             Node* rm = tremove(tfrom, ovkey);
             // put the part outside the requested region back
@@ -108,7 +108,7 @@ iterateoverlaps(Tree* tfrom, Tree* tto, uint64_t addr, size_t length, size_t nov
             fn(before, udata, uudata);
             needsbefore = true;
         } else if (ovkey + ovsize > addr + length) {
-            assert(ovkey > addr);
+            assert(ovkey >= addr);
             // split after region, similar to the before case
             Node* rm = tremove(tfrom, ovkey);
             tput(tfrom, addr + length, (ovkey + ovsize) - (addr + length), rm, ovinfo);
@@ -229,6 +229,7 @@ allocsplit(uint64_t nkey, uint64_t nsize, uint64_t addr, uint64_t length, Node**
 typedef struct {
     UpdateFn fn;
     MMInfo info;
+    size_t p2pagesize;
 } UpdateData;
 
 static void
@@ -237,7 +238,7 @@ cbmapat(Node* n, void* udata, void* uudata)
     UpdateData* data = (UpdateData*) udata;
     n->val = data->info;
     if (data->fn)
-        data->fn(n->key, n->size, n->val, uudata);
+        data->fn(n->key << data->p2pagesize, n->size << data->p2pagesize, n->val, uudata);
 }
 
 uint64_t
@@ -263,6 +264,7 @@ mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, 
         assert(noverlap > 0); // must overlap some allocated region
         UpdateData data = (UpdateData) {
             .fn = ufn,
+            .p2pagesize = mm->p2pagesize,
             .info = (MMInfo) {
                 .base = addr << mm->p2pagesize,
                 .len = length << mm->p2pagesize,
@@ -272,7 +274,11 @@ mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, 
                 .offset = offset,
             },
         };
-        return iterateoverlaps(&mm->alloc, &mm->alloc, addr, length, noverlap, cbmapat, &data, udata);
+        int r = iterateoverlaps(&mm->alloc, &mm->alloc, addr, length, noverlap, cbmapat, &data, udata);
+        if (r < 0) {
+            return (uint64_t) -1;
+        }
+        return addr << mm->p2pagesize;
     }
 
     uint64_t nkey = n->key;
@@ -303,6 +309,7 @@ mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, 
 
 typedef struct {
     UpdateFn fn;
+    size_t p2pagesize;
 } UnmapData;
 
 static void
@@ -310,7 +317,7 @@ cbunmap(Node* n, void* udata, void* uudata)
 {
     UnmapData* data = (UnmapData*) udata;
     if (data->fn)
-        data->fn(n->key, n->size, n->val, uudata);
+        data->fn(n->key << data->p2pagesize, n->size << data->p2pagesize, n->val, uudata);
 }
 
 int
@@ -338,6 +345,7 @@ mm_unmap_cb(MMAddrSpace* mm, uint64_t addr, size_t length, UpdateFn ufn, void* u
         // unmap portions of overlapping regions
         UnmapData data = (UnmapData) {
             .fn = ufn,
+            .p2pagesize = mm->p2pagesize,
         };
         return iterateoverlaps(&mm->alloc, &mm->free, addr, length, noverlap, cbunmap, &data, udata);
     }
@@ -381,6 +389,7 @@ mm_querypage(MMAddrSpace* mm, uint64_t addr, MMInfo* info)
 
 typedef struct {
     UpdateFn fn;
+    size_t p2pagesize;
     int prot;
 } ProtectData;
 
@@ -390,7 +399,7 @@ cbprotect(Node* n, void* udata, void* uudata)
     ProtectData* data = (ProtectData*) udata;
     n->val.prot = data->prot;
     if (data->fn)
-        data->fn(n->key, n->size, n->val, uudata);
+        data->fn(n->key << data->p2pagesize, n->size << data->p2pagesize, n->val, uudata);
 }
 
 int
@@ -462,6 +471,7 @@ mm_protect_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, UpdateFn 
     ProtectData data = (ProtectData) {
         .fn = ufn,
         .prot = prot,
+        .p2pagesize = mm->p2pagesize,
     };
 
     return iterateoverlaps(&mm->alloc, &mm->alloc, addr, length, noverlap, cbprotect, &data, udata);
