@@ -5,9 +5,13 @@ srcs = files(
   'tree.c',
 )
 
-libmmap = static_library('mmap', srcs, install: true)
+install = not meson.is_subproject()
+
+libmmap = static_library('mmap', srcs, install: install)
 mmap = declare_dependency(link_with: libmmap, include_directories: include_directories('.'))
 
-install_headers('mmap.h')
+if install
+  install_headers('mmap.h')
+endif
 
 subdir('test')
