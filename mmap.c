@@ -260,6 +260,35 @@ mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, 
 
     Node* n = tsearchcontains(&mm->free, addr, length);
     if (!n) {
+        n = tsearchcontains(&mm->alloc, addr, length);
+        if (n) {
+            // mapping is entirely contained inside another mapping
+            uint64_t nkey = n->key;
+            uint64_t nsize = n->size;
+            MMInfo ninfo = n->val;
+
+            Node* before;
+            Node* after;
+            if (!allocsplit(nkey, nsize, addr, length, &before, &after))
+                return MM_MAPERR;
+
+            Node* rm = tremove(&mm->alloc, nkey);
+            assert(rm);
+            if (before)
+                tput(&mm->alloc, nkey, addr - nkey, before, ninfo);
+            if (after)
+                tput(&mm->alloc, addr + length, (nkey + nsize) - (addr + length), after, ninfo);
+            tput(&mm->alloc, addr, length, rm, (MMInfo) {
+                .base = addr << mm->p2pagesize,
+                .len = length << mm->p2pagesize,
+                .prot = prot,
+                .flags = flags,
+                .fd = fd,
+                .offset = offset,
+            });
+            return addr << mm->p2pagesize;
+        }
+
         size_t noverlap = tnumoverlaps(&mm->alloc, addr, length);
         assert(noverlap > 0); // must overlap some allocated region
         UpdateData data = (UpdateData) {
