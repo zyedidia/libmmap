@@ -6,6 +6,12 @@
 
 #include "tree.h"
 
+static bool
+mmvalid(MMAddrSpace* mm, uint64_t start, size_t len)
+{
+    return start >= mm->base && len <= mm->len;
+}
+
 static uint64_t
 mmtrunc(MMAddrSpace* mm, uint64_t addr)
 {
@@ -190,6 +196,7 @@ mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t off
     });
 
     assert(nkey << mm->p2pagesize != MM_MAPERR);
+    assert(mmvalid(mm, nkey, length));
 
     return nkey << mm->p2pagesize;
 }
@@ -246,6 +253,9 @@ mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, 
         return MM_MAPERR;
     addr = mmtrunc(mm, addr);
     length = mmceil(mm, length);
+
+    if (!mmvalid(mm, addr, length))
+        return -EINVAL;
 
     Node* n = tsearchcontains(&mm->free, addr, length);
     if (!n) {
@@ -316,6 +326,9 @@ mm_unmap_cb(MMAddrSpace* mm, uint64_t addr, size_t length, UpdateFn ufn, void* u
         return -EINVAL;
     addr = mmtrunc(mm, addr);
     length = mmceil(mm, length);
+
+    if (!mmvalid(mm, addr, length))
+        return -EINVAL;
 
     Node* n = tsearchcontains(&mm->alloc, addr, length);
     if (!n) {
@@ -393,6 +406,9 @@ mm_protect_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, UpdateFn 
         return -EINVAL;
     addr = mmtrunc(mm, addr);
     length = mmceil(mm, length);
+
+    if (!mmvalid(mm, addr, length))
+        return -EINVAL;
 
     // Check that region doesn't overlap with unmapped pages.
     size_t nfree = tnumoverlaps(&mm->free, addr, length);
