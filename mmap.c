@@ -157,9 +157,12 @@ bool
 mm_init(MMAddrSpace* mm, uint64_t start, size_t len, size_t pagesize)
 {
     assert(ispow2(pagesize));
-    mm->p2pagesize = getpow(pagesize);
-    mm->base = start >> mm->p2pagesize;
-    mm->len = len >> mm->p2pagesize;
+    size_t p2pagesize = getpow(pagesize);
+    *mm = (MMAddrSpace) {
+        .p2pagesize = p2pagesize,
+        .base = start >> p2pagesize,
+        .len = len >> p2pagesize,
+    };
     Node* n = malloc(sizeof(Node));
     if (!n)
         return false;
