@@ -21,14 +21,14 @@ static uint64_t max(uint64_t a, uint64_t b);
 void
 tput(Tree* t, uint64_t key, uint64_t size, Node* allocn, MMInfo info)
 {
-    /* printf("%p: put %lx %ld\n", t, key, size); */
+    /* printf("%p: put %lx %ld\n", t, key << 12, size << 12); */
     t->root = nadd(t->root, key, size, allocn, info);
 }
 
 Node*
 tremove(Tree* t, uint64_t key)
 {
-    /* printf("%p: remove %lx\n", t, key); */
+    /* printf("%p: remove %lx\n", t, key << 12); */
     Node* removed = NULL;
     t->root = nremove(t->root, key, &removed);
     return removed;
@@ -196,9 +196,9 @@ nsearchcontains(Node* n, uint64_t key, uint64_t size)
 
     if (contained(key, size, n->key, n->size))
         return n;
-    else if (n->left && contained(key, size, n->left->key, n->left->maxend))
+    else if (n->left && contained(key, size, n->left->key, n->left->maxend - n->left->key))
         return nsearchcontains(n->left, key, size);
-    else if (n->right && contained(key, size, n->right->key, n->right->maxend))
+    else if (n->right && contained(key, size, n->right->key, n->right->maxend - n->right->key))
         return nsearchcontains(n->right, key, size);
     return NULL;
 }
