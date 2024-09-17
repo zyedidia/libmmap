@@ -227,7 +227,7 @@ noverlaps(Node* n, uint64_t key, uint64_t size, Node** nodes, size_t nnodes, siz
 {
     if (!n || key >= n->maxend)
         return nodecount;
-    nodecount += noverlaps(n->left, key, size, nodes, nnodes, nodecount);
+    nodecount = noverlaps(n->left, key, size, nodes, nnodes, nodecount);
     if (overlaps(key, size, n->key, n->size)) {
         assert(nodecount < nnodes);
         *nodes[nodecount] = *n;
@@ -235,7 +235,7 @@ noverlaps(Node* n, uint64_t key, uint64_t size, Node** nodes, size_t nnodes, siz
     }
     if (key + size <= n->key)
         return nodecount;
-    return nodecount + noverlaps(n->right, key, size, nodes, nnodes, nodecount);
+    return noverlaps(n->right, key, size, nodes, nnodes, nodecount);
 }
 
 
