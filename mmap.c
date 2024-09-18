@@ -186,7 +186,7 @@ mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t off
 
     Node* rm = tremove(&mm->free, n->key);
     assert(rm);
-    if (n->size > length) {
+    if (nsize > length) {
         tput(&mm->free, nkey + length, nsize - length, rm, (MMInfo){0});
     }
     tput(&mm->alloc, nkey, length, alloced, (MMInfo) {
@@ -399,7 +399,7 @@ mm_unmap_cb(MMAddrSpace* mm, uint64_t addr, size_t length, UpdateFn ufn, void* u
     if (after)
         tput(&mm->alloc, addr + length, (nkey + nsize) - (addr + length), after, ninfo);
     if (ufn)
-        ufn(addr, length, ninfo, udata);
+        ufn(addr << mm->p2pagesize, length << mm->p2pagesize, ninfo, udata);
     insertmerge(&mm->free, addr, length, rm, ninfo);
 
     return 0;
