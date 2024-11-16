@@ -196,9 +196,9 @@ nsearchcontains(Node* n, uint64_t key, uint64_t size)
 
     if (contained(key, size, n->key, n->size))
         return n;
-    else if (n->left && contained(key, size, n->left->key, n->left->maxend - n->left->key))
+    else if (n->left && contained(key, size, 0, n->left->maxend))
         return nsearchcontains(n->left, key, size);
-    else if (n->right && contained(key, size, n->right->key, n->right->maxend - n->right->key))
+    else if (n->right && contained(key, size, n->key, n->right->maxend - n->key))
         return nsearchcontains(n->right, key, size);
     return NULL;
 }
