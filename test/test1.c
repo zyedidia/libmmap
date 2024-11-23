@@ -3,7 +3,7 @@
 #include "mmap.h"
 #include "test.h"
 
-int main() {
+int main(void) {
     MMAddrSpace mm;
     bool ok = mm_init(&mm, 0, PAGESIZE * 16, PAGESIZE);
     assert(ok);
@@ -19,4 +19,4 @@ int main() {
     return 0;
 }
 
-const char* __asan_default_options() { return "detect_leaks=0"; }
+const char* __asan_default_options(void) { return "detect_leaks=0"; }
