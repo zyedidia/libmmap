@@ -30,7 +30,7 @@ typedef struct {
     size_t len;
     int prot;
     int flags;
-    int fd;
+    void* file;
     off_t offset;
 } MMInfo;
 
@@ -49,20 +49,20 @@ bool mm_init(MMAddrSpace* mm, uint64_t start, size_t len, size_t pagesize);
 // mm_mapany creates a new mapping, where the mapper may choose the location.
 //
 // The chosen location is returned, or -1 if an error occurred.
-uint64_t mm_mapany(MMAddrSpace* mm, size_t len, int prot, int flags, int fd, off_t offset);
+uint64_t mm_mapany(MMAddrSpace* mm, size_t len, int prot, int flags, void* file, off_t offset);
 
 // mm_mapat creates a new mapping at a specific address.
 //
 // The address is returned, or -1 if an error occurred. The range may overlap
 // with existing regions, in which case the overlapping portions of the
 // existing regions are unmapped and overwritten.
-uint64_t mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t len, int prot, int flags, int fd, off_t offset);
+uint64_t mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t len, int prot, int flags, void* file, off_t offset);
 
 // mm_mapat_cb is the same as mm_mapat but calls 'ufn' when it unmaps regions.
 //
 // Regions can be unmapped if the requested range overlaps with existing
 // regions. In that case the existing portions are unmapped and overwitten.
-uint64_t mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t len, int prot, int flags, int fd, off_t offset, UpdateFn ufn, void* udata);
+uint64_t mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t len, int prot, int flags, void* file, off_t offset, UpdateFn ufn, void* udata);
 
 // mm_unmap unmaps pages from mapped regions, or returns < 0 if an error
 // occurred. The range may include unmapped pages.

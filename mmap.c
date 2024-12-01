@@ -171,7 +171,7 @@ mm_init(MMAddrSpace* mm, uint64_t start, size_t len, size_t pagesize)
 }
 
 uint64_t
-mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t offset)
+mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, void* file, off_t offset)
 {
     length = mmceil(mm, length);
     Node* n = tsearchsize(&mm->free, length);
@@ -194,7 +194,7 @@ mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t off
         .len = length << mm->p2pagesize,
         .prot = prot,
         .flags = flags,
-        .fd = fd,
+        .file = file,
         .offset = offset,
     });
 
@@ -245,13 +245,13 @@ cbmapat(Node* n, void* udata, void* uudata)
 }
 
 uint64_t
-mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int fd, off_t offset)
+mm_mapat(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, void* file, off_t offset)
 {
-    return mm_mapat_cb(mm, addr, length, prot, flags, fd, offset, NULL, NULL);
+    return mm_mapat_cb(mm, addr, length, prot, flags, file, offset, NULL, NULL);
 }
 
 uint64_t
-mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, int fd, off_t offset, UpdateFn ufn, void* udata)
+mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, void* file, off_t offset, UpdateFn ufn, void* udata)
 {
     if (addr % (1 << mm->p2pagesize) != 0)
         return MM_MAPERR;
@@ -286,7 +286,7 @@ mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, 
                 .len = length << mm->p2pagesize,
                 .prot = prot,
                 .flags = flags,
-                .fd = fd,
+                .file = file,
                 .offset = offset,
             });
             return addr << mm->p2pagesize;
@@ -302,7 +302,7 @@ mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, 
                 .len = length << mm->p2pagesize,
                 .prot = prot,
                 .flags = flags,
-                .fd = fd,
+                .file = file,
                 .offset = offset,
             },
         };
@@ -332,7 +332,7 @@ mm_mapat_cb(MMAddrSpace* mm, uint64_t addr, size_t length, int prot, int flags, 
         .len = length << mm->p2pagesize,
         .prot = prot,
         .flags = flags,
-        .fd = fd,
+        .file = file,
         .offset = offset,
     });
 
