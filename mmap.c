@@ -9,7 +9,7 @@
 static bool
 mmvalid(MMAddrSpace* mm, uint64_t start, size_t len)
 {
-    return start >= mm->base && len <= mm->len;
+    return start >= mm->base && (start + len) <= (mm->base + mm->len);
 }
 
 static uint64_t
