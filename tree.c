@@ -247,8 +247,6 @@ nupdate(Node* n)
     n->height = 1 + max(nheight(n->left), nheight(n->right));
     n->maxsize = max(max(nmaxsize(n->left), nmaxsize(n->right)), n->size);
     n->maxend = max(max(nmaxend(n->left), nmaxend(n->right)), n->key + n->size);
-    nupdate(n->left);
-    nupdate(n->right);
 }
 
 static Node*
