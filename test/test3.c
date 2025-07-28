@@ -16,7 +16,7 @@ int main(void) {
     r = mm_mapany(&mm, 16 * PAGESIZE, 0, 0, 0, 0);
     assert(r != MM_MAPERR);
 
+    mm_free(&mm);
+
     return 0;
 }
-
-const char* __asan_default_options(void) { return "detect_leaks=0"; }

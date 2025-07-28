@@ -95,24 +95,24 @@ iterateoverlaps(Tree* tfrom, Tree* tto, uint64_t addr, size_t length, size_t nov
         MMInfo ovinfo = ovnodes[i]->val;
         if (contained(ovkey, ovsize, addr, length)) {
             Node* rm = tremove(tfrom, ovkey);
-            tput(tto, ovkey, ovsize, rm, ovinfo);
+            insertmerge(tto, ovkey, ovsize, rm, ovinfo);
             fn(rm, udata, uudata);
         } else if (ovkey < addr) {
             assert(ovkey + ovsize <= addr + length);
             // split before region
             Node* rm = tremove(tfrom, ovkey);
             // put the part outside the requested region back
-            tput(tfrom, ovkey, addr - ovkey, rm, ovinfo);
+            insertmerge(tfrom, ovkey, addr - ovkey, rm, ovinfo);
             // put the newly allocated split node in
-            tput(tto, addr, ovsize - (addr - ovkey), before, ovinfo);
+            insertmerge(tto, addr, ovsize - (addr - ovkey), before, ovinfo);
             fn(before, udata, uudata);
             needsbefore = true;
         } else if (ovkey + ovsize > addr + length) {
             assert(ovkey >= addr);
             // split after region, similar to the before case
             Node* rm = tremove(tfrom, ovkey);
-            tput(tfrom, addr + length, (ovkey + ovsize) - (addr + length), rm, ovinfo);
-            tput(tto, ovkey, (addr + length) - ovkey, after, ovinfo);
+            insertmerge(tfrom, addr + length, (ovkey + ovsize) - (addr + length), rm, ovinfo);
+            insertmerge(tto, ovkey, (addr + length) - ovkey, after, ovinfo);
             fn(after, udata, uudata);
             needsafter = true;
         }
@@ -170,6 +170,20 @@ mm_init(MMAddrSpace* mm, uint64_t start, size_t len, size_t pagesize)
     return true;
 }
 
+void
+mm_free(MMAddrSpace* mm)
+{
+    size_t p2pagesize = mm->p2pagesize;
+    mm_unmap(mm, mm->base << p2pagesize, mm->len << p2pagesize);
+
+    assert(mm->alloc.root == NULL);
+    assert(mm->free.root->left == NULL);
+    assert(mm->free.root->right == NULL);
+
+    free(mm->free.root);
+    mm->free.root = NULL;
+}
+
 uint64_t
 mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t offset)
 {
@@ -188,6 +202,8 @@ mm_mapany(MMAddrSpace* mm, size_t length, int prot, int flags, int fd, off_t off
     assert(rm);
     if (nsize > length) {
         tput(&mm->free, nkey + length, nsize - length, rm, (MMInfo){0});
+    } else {
+        free(rm);
     }
     tput(&mm->alloc, nkey, length, alloced, (MMInfo) {
         .base = nkey << mm->p2pagesize,

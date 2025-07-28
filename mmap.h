@@ -46,6 +46,9 @@ typedef void (*UpdateFn)(uint64_t start, size_t len, MMInfo info, void* udata);
 // Returns false if the memory mapper was unable to initialize (no memory).
 bool mm_init(MMAddrSpace* mm, uint64_t start, size_t len, size_t pagesize);
 
+// Deallocates the address space and frees all associated memory.
+void mm_free(MMAddrSpace* mm);
+
 // mm_mapany creates a new mapping, where the mapper may choose the location.
 //
 // The chosen location is returned, or -1 if an error occurred.

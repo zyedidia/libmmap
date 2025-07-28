@@ -28,7 +28,7 @@ int main(void) {
     assert(b);
     assert(info.prot == PROT_SOME);
 
+    mm_free(&mm);
+
     return 0;
 }
-
-const char* __asan_default_options(void) { return "detect_leaks=0"; }
