@@ -1,9 +1,11 @@
-#include <assert.h>
-
 #include "mmap.h"
 #include "test.h"
 
-int main(void) {
+#include <assert.h>
+
+int
+main(void)
+{
     MMAddrSpace mm;
     bool ok = mm_init(&mm, 0, PAGESIZE * 16, PAGESIZE);
     assert(ok);

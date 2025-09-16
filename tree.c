@@ -1,77 +1,91 @@
-#include <stdlib.h>
-#include <stdbool.h>
-#include <assert.h>
-
 #include "tree.h"
 
-static Node* nadd(Node* n, uint64_t key, uint64_t size, Node* allocn, MMInfo info);
-static Node* nremove(Node* n, uint64_t key, Node** removed);
-static Node* nsearchaddr(Node* n, uint64_t key);
-static Node* nsearchsize(Node* n, uint64_t size);
-static Node* nsearchcontains(Node* n, uint64_t key, uint64_t size);
-static Node* nsearchend(Node* n, uint64_t key);
-static Node* nbalance(Node* n);
-static Node* nrotateright(Node* n);
-static Node* nrotateleft(Node* n);
-static Node* nfindsmallest(Node* n);
-static size_t nnumoverlaps(Node* n, uint64_t key, uint64_t size);
-static size_t noverlaps(Node* n, uint64_t key, uint64_t size, Node** nodes, size_t nnodes, size_t nodecount);
-static uint64_t max(uint64_t a, uint64_t b);
+#include <assert.h>
+#include <stdbool.h>
+#include <stdlib.h>
+
+static Node *
+nadd(Node *n, uint64_t key, uint64_t size, Node *allocn, MMInfo info);
+static Node *
+nremove(Node *n, uint64_t key, Node **removed);
+static Node *
+nsearchaddr(Node *n, uint64_t key);
+static Node *
+nsearchsize(Node *n, uint64_t size);
+static Node *
+nsearchcontains(Node *n, uint64_t key, uint64_t size);
+static Node *
+nsearchend(Node *n, uint64_t key);
+static Node *
+nbalance(Node *n);
+static Node *
+nrotateright(Node *n);
+static Node *
+nrotateleft(Node *n);
+static Node *
+nfindsmallest(Node *n);
+static size_t
+nnumoverlaps(Node *n, uint64_t key, uint64_t size);
+static size_t
+noverlaps(Node *n, uint64_t key, uint64_t size, Node **nodes, size_t nnodes,
+    size_t nodecount);
+static uint64_t
+max(uint64_t a, uint64_t b);
 
 void
-tput(Tree* t, uint64_t key, uint64_t size, Node* allocn, MMInfo info)
+tput(Tree *t, uint64_t key, uint64_t size, Node *allocn, MMInfo info)
 {
     /* printf("%p: put %lx %ld\n", t, key << 12, size << 12); */
     t->root = nadd(t->root, key, size, allocn, info);
 }
 
-Node*
-tremove(Tree* t, uint64_t key)
+Node *
+tremove(Tree *t, uint64_t key)
 {
     /* printf("%p: remove %lx\n", t, key << 12); */
-    Node* removed = NULL;
+    Node *removed = NULL;
     t->root = nremove(t->root, key, &removed);
     return removed;
 }
 
-Node*
-tsearchaddr(Tree* t, uint64_t key)
+Node *
+tsearchaddr(Tree *t, uint64_t key)
 {
     return nsearchaddr(t->root, key);
 }
 
-Node*
-tsearchsize(Tree* t, uint64_t size)
+Node *
+tsearchsize(Tree *t, uint64_t size)
 {
     return nsearchsize(t->root, size);
 }
 
-Node*
-tsearchcontains(Tree* t, uint64_t key, uint64_t size)
+Node *
+tsearchcontains(Tree *t, uint64_t key, uint64_t size)
 {
     return nsearchcontains(t->root, key, size);
 }
 
-Node*
-tsearchend(Tree* t, uint64_t end)
+Node *
+tsearchend(Tree *t, uint64_t end)
 {
     return nsearchend(t->root, end);
 }
 
 size_t
-tnumoverlaps(Tree* t, uint64_t key, uint64_t size)
+tnumoverlaps(Tree *t, uint64_t key, uint64_t size)
 {
     return nnumoverlaps(t->root, key, size);
 }
 
 void
-toverlaps(Tree* t, uint64_t key, uint64_t size, Node** nodes, size_t nnodes)
+toverlaps(Tree *t, uint64_t key, uint64_t size, Node **nodes, size_t nnodes)
 {
     noverlaps(t->root, key, size, nodes, nnodes, 0);
 }
 
-static Node*
-nadd(Node* n, uint64_t key, uint64_t size, Node* allocn, MMInfo info)
+static Node *
+nadd(Node *n, uint64_t key, uint64_t size, Node *allocn, MMInfo info)
 {
     if (!n) {
         n = allocn;
@@ -98,8 +112,8 @@ nadd(Node* n, uint64_t key, uint64_t size, Node* allocn, MMInfo info)
     return nbalance(n);
 }
 
-static Node*
-nremove(Node* n, uint64_t key, Node** removed)
+static Node *
+nremove(Node *n, uint64_t key, Node **removed)
 {
     if (!n)
         return NULL;
@@ -109,7 +123,7 @@ nremove(Node* n, uint64_t key, Node** removed)
         n->right = nremove(n->right, key, removed);
     } else {
         if (n->left && n->right) {
-            Node* rightmin = nfindsmallest(n->right);
+            Node *rightmin = nfindsmallest(n->right);
             n->key = rightmin->key;
             n->val = rightmin->val;
             n->size = rightmin->size;
@@ -128,8 +142,8 @@ nremove(Node* n, uint64_t key, Node** removed)
     return nbalance(n);
 }
 
-static Node*
-nsearchaddr(Node* n, uint64_t key)
+static Node *
+nsearchaddr(Node *n, uint64_t key)
 {
     if (!n)
         return NULL;
@@ -142,23 +156,23 @@ nsearchaddr(Node* n, uint64_t key)
 }
 
 static int
-nheight(Node* n)
+nheight(Node *n)
 {
     return !n ? 0 : n->height;
 }
 static uint64_t
-nmaxsize(Node* n)
+nmaxsize(Node *n)
 {
     return !n ? 0 : n->maxsize;
 }
 static uint64_t
-nmaxend(Node* n)
+nmaxend(Node *n)
 {
     return !n ? 0 : n->maxend;
 }
 
-static Node*
-nsearchsize(Node* n, uint64_t size)
+static Node *
+nsearchsize(Node *n, uint64_t size)
 {
     if (!n)
         return NULL;
@@ -173,8 +187,8 @@ nsearchsize(Node* n, uint64_t size)
     return NULL;
 }
 
-static Node*
-nsearchend(Node* n, uint64_t end)
+static Node *
+nsearchend(Node *n, uint64_t end)
 {
     if (!n)
         return NULL;
@@ -188,8 +202,8 @@ nsearchend(Node* n, uint64_t end)
     return NULL;
 }
 
-static Node*
-nsearchcontains(Node* n, uint64_t key, uint64_t size)
+static Node *
+nsearchcontains(Node *n, uint64_t key, uint64_t size)
 {
     if (!n)
         return NULL;
@@ -198,7 +212,8 @@ nsearchcontains(Node* n, uint64_t key, uint64_t size)
         return n;
     else if (n->left && contained(key, size, 0, n->left->maxend))
         return nsearchcontains(n->left, key, size);
-    else if (n->right && contained(key, size, n->key, n->right->maxend - n->key))
+    else if (n->right &&
+        contained(key, size, n->key, n->right->maxend - n->key))
         return nsearchcontains(n->right, key, size);
     return NULL;
 }
@@ -210,7 +225,7 @@ overlaps(uint64_t key1, uint64_t size1, uint64_t key2, uint64_t size2)
 }
 
 static size_t
-nnumoverlaps(Node* n, uint64_t key, uint64_t size)
+nnumoverlaps(Node *n, uint64_t key, uint64_t size)
 {
     if (!n || key >= n->maxend)
         return 0;
@@ -223,7 +238,8 @@ nnumoverlaps(Node* n, uint64_t key, uint64_t size)
 }
 
 static size_t
-noverlaps(Node* n, uint64_t key, uint64_t size, Node** nodes, size_t nnodes, size_t nodecount)
+noverlaps(Node *n, uint64_t key, uint64_t size, Node **nodes, size_t nnodes,
+    size_t nodecount)
 {
     if (!n || key >= n->maxend)
         return nodecount;
@@ -238,9 +254,8 @@ noverlaps(Node* n, uint64_t key, uint64_t size, Node** nodes, size_t nnodes, siz
     return noverlaps(n->right, key, size, nodes, nnodes, nodecount);
 }
 
-
 static void
-nupdate(Node* n)
+nupdate(Node *n)
 {
     if (!n)
         return;
@@ -249,8 +264,8 @@ nupdate(Node* n)
     n->maxend = max(max(nmaxend(n->left), nmaxend(n->right)), n->key + n->size);
 }
 
-static Node*
-nbalance(Node* n)
+static Node *
+nbalance(Node *n)
 {
     if (!n)
         return n;
@@ -269,10 +284,10 @@ nbalance(Node* n)
     return n;
 }
 
-static Node*
-nrotateleft(Node* n)
+static Node *
+nrotateleft(Node *n)
 {
-    Node* newroot = n->right;
+    Node *newroot = n->right;
     n->right = newroot->left;
     newroot->left = n;
 
@@ -281,10 +296,10 @@ nrotateleft(Node* n)
     return newroot;
 }
 
-static Node*
-nrotateright(Node* n)
+static Node *
+nrotateright(Node *n)
 {
-    Node* newroot = n->left;
+    Node *newroot = n->left;
     n->left = newroot->right;
     newroot->right = n;
 
@@ -299,8 +314,8 @@ max(uint64_t a, uint64_t b)
     return a > b ? a : b;
 }
 
-static Node*
-nfindsmallest(Node* n)
+static Node *
+nfindsmallest(Node *n)
 {
     if (n->left)
         return nfindsmallest(n->left);

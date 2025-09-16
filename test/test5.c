@@ -1,15 +1,17 @@
-#include <assert.h>
-#include <errno.h>
-
 #include "mmap.h"
 #include "test.h"
+
+#include <assert.h>
+#include <errno.h>
 
 enum {
     PROT_NONE = 0,
     PROT_SOME = 1,
 };
 
-int main(void) {
+int
+main(void)
+{
     MMAddrSpace mm;
     bool ok = mm_init(&mm, 0, 16, 1);
     assert(ok);
