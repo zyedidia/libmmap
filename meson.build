@@ -2,7 +2,6 @@ project('libmmap', ['c'], default_options: ['warning_level=3', 'buildtype=debugo
 
 srcs = files(
   'mmap.c',
-  'tree.c',
 )
 
 install = not meson.is_subproject()
