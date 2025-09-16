@@ -266,7 +266,7 @@ mm_unmap_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, UpdateFn ufn,
             node->len = addr - node->base;
             struct MMNode *old_node = node;
             node = node->next;
-            if (node->len == 0) {
+            if (old_node->len == 0) {
                 node_remove(mm, old_node);
                 free(old_node);
             }
