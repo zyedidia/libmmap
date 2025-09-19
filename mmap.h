@@ -27,6 +27,7 @@ struct MMAddrSpace {
     size_t p2pagesize;
 
     struct MMNode *nodes;
+    struct MMNode *cursor;
 };
 
 typedef void (*UpdateFn)(uintptr_t start, size_t len, struct MMInfo info, void *udata);
