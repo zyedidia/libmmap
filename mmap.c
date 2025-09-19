@@ -22,19 +22,19 @@ getpow(uint64_t x)
 }
 
 static bool
-mmvalid(struct MMAddrSpace* mm, uint64_t start, size_t len)
+mmvalid(struct MMAddrSpace *mm, uint64_t start, size_t len)
 {
     return start >= mm->base && (start + len) <= (mm->base + mm->len);
 }
 
 static uint64_t
-mmtrunc(struct MMAddrSpace* mm, uint64_t addr)
+mmtrunc(struct MMAddrSpace *mm, uint64_t addr)
 {
     return addr >> mm->p2pagesize;
 }
 
 static uint64_t
-mmceil(struct MMAddrSpace* mm, uint64_t addr)
+mmceil(struct MMAddrSpace *mm, uint64_t addr)
 {
     uint64_t align = 1 << mm->p2pagesize;
     uint64_t align_mask = align - 1;
@@ -105,7 +105,7 @@ mm_init(struct MMAddrSpace *mm, uintptr_t start, size_t len, size_t pagesize)
 }
 
 void
-mm_free(struct MMAddrSpace* mm)
+mm_free(struct MMAddrSpace *mm)
 {
     size_t p2pagesize = mm->p2pagesize;
     mm_unmap(mm, mm->base << p2pagesize, mm->len << p2pagesize);
@@ -114,7 +114,8 @@ mm_free(struct MMAddrSpace* mm)
 }
 
 static uintptr_t
-mm_mapany_cursor(struct MMAddrSpace *mm, size_t len, int prot, int flags, int fd, off_t offset, struct MMNode *cursor)
+mm_mapany_cursor(struct MMAddrSpace *mm, size_t len, int prot, int flags,
+    int fd, off_t offset, struct MMNode *cursor)
 {
     len = mmceil(mm, len);
 
@@ -141,12 +142,13 @@ mm_mapany_cursor(struct MMAddrSpace *mm, size_t len, int prot, int flags, int fd
         *new = (struct MMNode) {
             .base = start,
             .len = len,
-            .info = (struct MMInfo) {
-                .prot = prot,
-                .flags = flags,
-                .fd = fd,
-                .offset = offset,
-            },
+            .info =
+                (struct MMInfo) {
+                    .prot = prot,
+                    .flags = flags,
+                    .fd = fd,
+                    .offset = offset,
+                },
         };
         if (node) {
             node_insert_before(mm, node, new);
@@ -166,7 +168,8 @@ mm_mapany_cursor(struct MMAddrSpace *mm, size_t len, int prot, int flags, int fd
 }
 
 uintptr_t
-mm_mapany(struct MMAddrSpace *mm, size_t len, int prot, int flags, int fd, off_t offset)
+mm_mapany(struct MMAddrSpace *mm, size_t len, int prot, int flags, int fd,
+    off_t offset)
 {
     uintptr_t p = -1;
     if (mm->cursor)
@@ -177,13 +180,15 @@ mm_mapany(struct MMAddrSpace *mm, size_t len, int prot, int flags, int fd, off_t
 }
 
 uintptr_t
-mm_mapat(struct MMAddrSpace *mm, uintptr_t addr, size_t length, int prot, int flags, int fd, off_t offset)
+mm_mapat(struct MMAddrSpace *mm, uintptr_t addr, size_t length, int prot,
+    int flags, int fd, off_t offset)
 {
     return mm_mapat_cb(mm, addr, length, prot, flags, fd, offset, NULL, NULL);
 }
 
 uintptr_t
-mm_mapat_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, int prot, int flags, int fd, off_t offset, UpdateFn ufn, void *udata)
+mm_mapat_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, int prot,
+    int flags, int fd, off_t offset, UpdateFn ufn, void *udata)
 {
     if (addr % (1 << mm->p2pagesize) != 0)
         return (uintptr_t) -1;
@@ -197,18 +202,20 @@ mm_mapat_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, int prot, int
     if (!new)
         return (uintptr_t) -1;
 
-    int r = mm_unmap_cb(mm, addr << mm->p2pagesize, length << mm->p2pagesize, ufn, udata);
+    int r = mm_unmap_cb(mm, addr << mm->p2pagesize, length << mm->p2pagesize,
+        ufn, udata);
     assert(r == 0);
 
     *new = (struct MMNode) {
         .base = addr,
         .len = length,
-        .info = (struct MMInfo) {
-            .prot = prot,
-            .flags = flags,
-            .fd = fd,
-            .offset = offset,
-        },
+        .info =
+            (struct MMInfo) {
+                .prot = prot,
+                .flags = flags,
+                .fd = fd,
+                .offset = offset,
+            },
     };
 
     struct MMNode *node = mm->nodes;
@@ -244,7 +251,8 @@ mm_unmap(struct MMAddrSpace *mm, uintptr_t addr, size_t length)
 }
 
 int
-mm_unmap_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, UpdateFn ufn, void *udata)
+mm_unmap_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, UpdateFn ufn,
+    void *udata)
 {
     if (addr % (1 << mm->p2pagesize) != 0 || length == 0)
         return -LINUX_EINVAL;
@@ -279,7 +287,8 @@ mm_unmap_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, UpdateFn ufn,
         if (contained(node->base, node->len, addr, length)) {
             // Node fully contained in range.
             if (ufn)
-                ufn(node->base << mm->p2pagesize, node->len << mm->p2pagesize, node->info, udata);
+                ufn(node->base << mm->p2pagesize, node->len << mm->p2pagesize,
+                    node->info, udata);
             struct MMNode *old_node = node;
             if (mm->cursor == cursor)
                 mm->cursor = node->prev;
@@ -289,7 +298,8 @@ mm_unmap_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, UpdateFn ufn,
         } else if (contained(addr, length, node->base, node->len)) {
             // Node fully contains the range.
             if (ufn)
-                ufn(addr << mm->p2pagesize, length << mm->p2pagesize, node->info, udata);
+                ufn(addr << mm->p2pagesize, length << mm->p2pagesize,
+                    node->info, udata);
             *new = (struct MMNode) {
                 .base = addr + length,
                 .len = node->base + node->len - (addr + length),
@@ -314,15 +324,19 @@ mm_unmap_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, UpdateFn ufn,
             // Node starts before the range and ends inside it.
             size_t node_end = node->base + node->len;
             if (ufn)
-                ufn(addr << mm->p2pagesize, (node_end - addr) << mm->p2pagesize, node->info, udata);
+                ufn(addr << mm->p2pagesize, (node_end - addr) << mm->p2pagesize,
+                    node->info, udata);
             if (mm->cursor == cursor)
                 mm->cursor = node;
             node->len = addr - node->base;
             node = node->next;
-        } else if (node->base < addr + length && node->base + node->len > addr) {
+        } else if (node->base < addr + length &&
+            node->base + node->len > addr) {
             // Node starts within the range and ends outside it.
             if (ufn)
-                ufn(node->base << mm->p2pagesize, (addr + length - node->base) << mm->p2pagesize, node->info, udata);
+                ufn(node->base << mm->p2pagesize,
+                    (addr + length - node->base) << mm->p2pagesize, node->info,
+                    udata);
             size_t node_end = node->base + node->len;
             node->base = addr + length;
             node->len = node_end - node->base;

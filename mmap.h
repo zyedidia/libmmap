@@ -1,9 +1,9 @@
 #pragma once
 
-#include <stdint.h>
-#include <stddef.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
 struct MMInfo {
     int prot;
@@ -30,7 +30,8 @@ struct MMAddrSpace {
     struct MMNode *cursor;
 };
 
-typedef void (*UpdateFn)(uintptr_t start, size_t len, struct MMInfo info, void *udata);
+typedef void (
+    *UpdateFn)(uintptr_t start, size_t len, struct MMInfo info, void *udata);
 
 // Note: there is a distinction between 'mappings' and 'regions'. A mapping is
 // a set of pages originally created with 'mapany' or 'mapat'. A region is a
@@ -51,7 +52,8 @@ mm_free(struct MMAddrSpace *mm);
 //
 // The chosen location is returned, or -1 if an error occurred.
 uintptr_t
-mm_mapany(struct MMAddrSpace *mm, size_t len, int prot, int flags, int fd, off_t offset);
+mm_mapany(struct MMAddrSpace *mm, size_t len, int prot, int flags, int fd,
+    off_t offset);
 
 // mm_mapat creates a new mapping at a specific address.
 //
@@ -59,14 +61,16 @@ mm_mapany(struct MMAddrSpace *mm, size_t len, int prot, int flags, int fd, off_t
 // with existing regions, in which case the overlapping portions of the
 // existing regions are unmapped and overwritten.
 uintptr_t
-mm_mapat(struct MMAddrSpace *mm, uintptr_t addr, size_t len, int prot, int flags, int fd, off_t offset);
+mm_mapat(struct MMAddrSpace *mm, uintptr_t addr, size_t len, int prot,
+    int flags, int fd, off_t offset);
 
 // mm_mapat_cb is the same as mm_mapat but calls 'ufn' when it unmaps regions.
 //
 // Regions can be unmapped if the requested range overlaps with existing
 // regions. In that case the existing portions are unmapped and overwitten.
 uintptr_t
-mm_mapat_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t len, int prot, int flags, int fd, off_t offset, UpdateFn ufn, void *udata);
+mm_mapat_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t len, int prot,
+    int flags, int fd, off_t offset, UpdateFn ufn, void *udata);
 
 // mm_unmap unmaps pages from mapped regions, or returns < 0 if an error
 // occurred. The range may include unmapped pages.
@@ -77,7 +81,8 @@ mm_unmap(struct MMAddrSpace *mm, uintptr_t addr, size_t len);
 //
 // This is useful because unmap may unmap multiple discontiguous regions.
 int
-mm_unmap_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t len, UpdateFn ufn, void *udata);
+mm_unmap_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t len, UpdateFn ufn,
+    void *udata);
 
 // mm_query looks up information about a region and places it in 'info'.
 //
@@ -97,4 +102,5 @@ mm_protect(struct MMAddrSpace *mm, uintptr_t addr, size_t len, int prot);
 //
 // This is useful since a protection update may affect multiple regions.
 int
-mm_protect_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t len, int prot, UpdateFn ufn, void *udata);
+mm_protect_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t len, int prot,
+    UpdateFn ufn, void *udata);
