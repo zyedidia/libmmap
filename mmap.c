@@ -123,7 +123,6 @@ mm_mapany_cursor(struct MMAddrSpace *mm, size_t len, int prot, int flags,
     struct MMNode *end = node;
     uint64_t start = node ? node->base : mm->base;
     size_t gap = 0;
-    size_t iters = 0;
     while (start < mm->base + mm->len) {
         gap = node ? node->base - start : mm->base + mm->len - start;
         if (!node || gap >= len)
@@ -132,7 +131,6 @@ mm_mapany_cursor(struct MMAddrSpace *mm, size_t len, int prot, int flags,
         if (!node->next)
             end = node;
         node = node->next;
-        iters++;
     }
 
     if (gap >= len) {
@@ -269,8 +267,6 @@ mm_unmap_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, UpdateFn ufn,
 
     struct MMNode *node = mm->nodes;
 
-    size_t iters = 0;
-
     if (mm->cursor) {
         struct MMNode *start = mm->cursor;
         while (start && start->base > addr) {
@@ -348,7 +344,6 @@ mm_unmap_cb(struct MMAddrSpace *mm, uintptr_t addr, size_t length, UpdateFn ufn,
         } else {
             node = node->next;
         }
-        iters++;
     }
 
     if (!used_new)
