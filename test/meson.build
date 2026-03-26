@@ -11,3 +11,5 @@ test_addrspace = executable('test_addrspace',
 
 test('rangemap', test_rangemap, protocol: 'tap')
 test('addrspace', test_addrspace, protocol: 'tap')
+
+subdir('fuzz')

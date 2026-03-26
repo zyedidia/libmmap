@@ -12,7 +12,7 @@ bool AddrSpace::init(uintptr_t start, size_t len, size_t pagesize) {
   while (p >>= 1)
     p2pagesize_++;
   base_ = to_page(start);
-  len_ = to_page(len);
+  len_ = to_page_ceil(len);
   regions_.clear();
   return true;
 }
@@ -21,7 +21,11 @@ void AddrSpace::reset() { regions_.clear(); }
 
 uintptr_t AddrSpace::map_any(size_t len, int prot, int flags, int fd,
                              int64_t offset) {
+  if (len == 0)
+    return (uintptr_t)-1;
   uint64_t pages = to_page_ceil(len);
+  if (pages == 0)
+    return (uintptr_t)-1;
   auto gaps = regions_.get_gaps(base_, base_ + len_);
   for (auto &gap : gaps) {
     if (gap.second - gap.first >= pages) {
@@ -36,11 +40,13 @@ uintptr_t AddrSpace::map_any(size_t len, int prot, int flags, int fd,
 uintptr_t AddrSpace::map_at(uintptr_t addr, size_t len, int prot, int flags,
                             int fd, int64_t offset, UpdateFn ufn) {
   uint64_t pagesize = 1ULL << p2pagesize_;
-  if (addr % pagesize != 0)
+  if (addr % pagesize != 0 || len == 0)
     return (uintptr_t)-1;
 
   uint64_t start = to_page(addr);
   uint64_t pages = to_page_ceil(len);
+  if (pages == 0)
+    return (uintptr_t)-1;
 
   if (!is_valid(start, pages))
     return (uintptr_t)-1;
@@ -57,6 +63,8 @@ Error AddrSpace::unmap(uintptr_t addr, size_t len, UpdateFn ufn) {
 
   uint64_t start = to_page(addr);
   uint64_t pages = to_page_ceil(len);
+  if (pages == 0)
+    return Error::kInval;
 
   if (!is_valid(start, pages))
     return Error::kInval;
@@ -90,6 +98,8 @@ Error AddrSpace::protect(uintptr_t addr, size_t len, int prot, UpdateFn ufn) {
 
   uint64_t start = to_page(addr);
   uint64_t pages = to_page_ceil(len);
+  if (pages == 0)
+    return Error::kInval;
   uint64_t end = start + pages;
 
   if (!is_valid(start, pages))

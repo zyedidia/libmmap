@@ -40,12 +40,19 @@ struct AddrSpace {
 private:
   uint64_t to_page(uint64_t addr) const { return addr >> p2pagesize_; }
   uint64_t to_page_ceil(uint64_t len) const {
+    uint64_t pages = len >> p2pagesize_;
     uint64_t mask = (1ULL << p2pagesize_) - 1;
-    return (len + mask) >> p2pagesize_;
+    if (len & mask)
+      pages++;
+    return pages;
   }
   uintptr_t to_addr(uint64_t page) const { return page << p2pagesize_; }
   bool is_valid(uint64_t start, uint64_t len) const {
-    return start >= base_ && start + len <= base_ + len_;
+    if (start < base_)
+      return false;
+    if (len > base_ + len_ - start)
+      return false;
+    return true;
   }
 
   uint64_t base_;

@@ -1,4 +1,4 @@
-project('libmmap', 'cpp',
+project('libmmap', 'cpp', 'c',
   default_options: ['cpp_std=c++17', 'warning_level=3'],
 )
 
