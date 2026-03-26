@@ -1,3 +1,5 @@
 .cache
 todo.txt
 reference
+build
+cmake-build

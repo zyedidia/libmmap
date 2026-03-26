@@ -30,7 +30,8 @@ uintptr_t AddrSpace::map_any(size_t len, int prot, int flags, int fd,
   for (auto &gap : gaps) {
     if (gap.second - gap.first >= pages) {
       uint64_t start = gap.first;
-      regions_.insert(start, start + pages, MapInfo{prot, flags, fd, offset});
+      regions_.insert(start, start + pages,
+                      MapInfo{prot, flags, fd, offset, false});
       return to_addr(start);
     }
   }
@@ -52,7 +53,8 @@ uintptr_t AddrSpace::map_at(uintptr_t addr, size_t len, int prot, int flags,
     return (uintptr_t)-1;
 
   unmap(addr, len, ufn);
-  regions_.insert(start, start + pages, MapInfo{prot, flags, fd, offset});
+  regions_.insert(start, start + pages,
+                  MapInfo{prot, flags, fd, offset, false});
   return addr;
 }
 
@@ -117,6 +119,18 @@ Error AddrSpace::protect(uintptr_t addr, size_t len, int prot, UpdateFn ufn) {
     regions_.insert(cs, ce, new_info);
   }
   return Error::kOk;
+}
+
+void AddrSpace::mark_original() {
+  regions_.update_all([](MapInfo &info) { info.original = true; });
+}
+
+void AddrSpace::unmap_non_original(UpdateFn ufn) {
+  auto all = regions_.get_overlapping(base_, base_ + len_);
+  for (auto &e : all) {
+    if (!e.val.original)
+      unmap(to_addr(e.start), to_addr(e.end) - to_addr(e.start), ufn);
+  }
 }
 
 } // namespace mmap

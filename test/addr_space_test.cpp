@@ -413,8 +413,95 @@ static void test_unmap_callback_clipped() {
   assert(cb_len == kPageSize * 2);
 }
 
+static void test_mark_original() {
+  AddrSpace mm;
+  assert(mm.init(kBase, kSize, kPageSize));
+
+  mm.map_at(kBase, kPageSize, 1, 0, -1, 0);
+  mm.map_at(kBase + kPageSize * 2, kPageSize, 2, 0, -1, 0);
+  mm.mark_original();
+
+  // Original flag should be set.
+  MapInfo info;
+  assert(mm.query_page(kBase, &info));
+  assert(info.original);
+  assert(mm.query_page(kBase + kPageSize * 2, &info));
+  assert(info.original);
+
+  // New mappings after mark_original should not be original.
+  mm.map_at(kBase + kPageSize, kPageSize, 3, 0, -1, 0);
+  assert(mm.query_page(kBase + kPageSize, &info));
+  assert(!info.original);
+}
+
+static void test_unmap_non_original() {
+  AddrSpace mm;
+  assert(mm.init(kBase, kSize, kPageSize));
+
+  mm.map_at(kBase, kPageSize, 1, 0, -1, 0);
+  mm.map_at(kBase + kPageSize * 2, kPageSize, 2, 0, -1, 0);
+  mm.mark_original();
+
+  // Add non-original mappings.
+  mm.map_at(kBase + kPageSize, kPageSize, 3, 0, -1, 0);
+  mm.map_at(kBase + kPageSize * 3, kPageSize, 4, 0, -1, 0);
+
+  int called = 0;
+  mm.unmap_non_original([&](uintptr_t, size_t, MapInfo info) {
+    called++;
+    assert(!info.original);
+  });
+
+  // Non-original should be gone.
+  assert(called == 2);
+  MapInfo info;
+  assert(!mm.query_page(kBase + kPageSize, &info));
+  assert(!mm.query_page(kBase + kPageSize * 3, &info));
+
+  // Original should remain.
+  assert(mm.query_page(kBase, &info));
+  assert(info.prot == 1);
+  assert(mm.query_page(kBase + kPageSize * 2, &info));
+  assert(info.prot == 2);
+}
+
+static void test_unmap_non_original_empty() {
+  AddrSpace mm;
+  assert(mm.init(kBase, kSize, kPageSize));
+
+  mm.map_at(kBase, kPageSize, 1, 0, -1, 0);
+  mm.mark_original();
+
+  int called = 0;
+  mm.unmap_non_original([&](uintptr_t, size_t, MapInfo) { called++; });
+  assert(called == 0);
+
+  // Original mapping still present.
+  MapInfo info;
+  assert(mm.query_page(kBase, &info));
+}
+
+static void test_mark_original_twice() {
+  AddrSpace mm;
+  assert(mm.init(kBase, kSize, kPageSize));
+
+  mm.map_at(kBase, kPageSize, 1, 0, -1, 0);
+  mm.mark_original();
+
+  // Add new mapping, mark original again.
+  mm.map_at(kBase + kPageSize, kPageSize, 2, 0, -1, 0);
+  mm.mark_original();
+
+  // Both should now be original.
+  MapInfo info;
+  assert(mm.query_page(kBase, &info));
+  assert(info.original);
+  assert(mm.query_page(kBase + kPageSize, &info));
+  assert(info.original);
+}
+
 int main() {
-  printf("1..27\n");
+  printf("1..31\n");
   RUN_TEST(test_init);
   RUN_TEST(test_map_any_and_query);
   RUN_TEST(test_query_unmapped);
@@ -442,5 +529,9 @@ int main() {
   RUN_TEST(test_map_any_multi_page);
   RUN_TEST(test_multiple_mappings);
   RUN_TEST(test_reset);
+  RUN_TEST(test_mark_original);
+  RUN_TEST(test_unmap_non_original);
+  RUN_TEST(test_unmap_non_original_empty);
+  RUN_TEST(test_mark_original_twice);
   return 0;
 }
