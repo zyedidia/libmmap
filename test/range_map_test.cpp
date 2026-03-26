@@ -277,9 +277,9 @@ static void test_insert_exact_boundary() {
 
 static void test_insert_empty_range() {
   RangeMap<int, int> m;
-  m.insert(5, 5, 1);  // Empty range.
+  m.insert(5, 5, 1); // Empty range.
   assert(m.empty());
-  m.insert(5, 3, 1);  // Inverted range.
+  m.insert(5, 3, 1); // Inverted range.
   assert(m.empty());
 }
 
@@ -303,9 +303,9 @@ static void test_remove_spanning_multiple() {
 static void test_remove_empty_range() {
   RangeMap<int, int> m;
   m.insert(0, 10, 1);
-  m.remove(5, 5);  // Empty range, no-op.
+  m.remove(5, 5); // Empty range, no-op.
   assert(m.size() == 1);
-  m.remove(5, 3);  // Inverted range, no-op.
+  m.remove(5, 3); // Inverted range, no-op.
   assert(m.size() == 1);
 }
 

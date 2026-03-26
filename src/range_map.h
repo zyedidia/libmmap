@@ -109,8 +109,8 @@ public:
     std::vector<Entry<K, V>> result;
     if (start >= end)
       return result;
-    for (auto it = overlap_begin(start);
-         it != Map_.end() && it->first < end; ++it) {
+    for (auto it = overlap_begin(start); it != Map_.end() && it->first < end;
+         ++it) {
       result.push_back({it->first, it->second.first, it->second.second});
     }
     return result;
@@ -122,8 +122,8 @@ public:
     if (start >= end)
       return result;
     K cursor = start;
-    for (auto it = overlap_begin(start);
-         it != Map_.end() && it->first < end; ++it) {
+    for (auto it = overlap_begin(start); it != Map_.end() && it->first < end;
+         ++it) {
       if (it->first > cursor)
         result.push_back({cursor, it->first});
       if (it->second.first > cursor)

@@ -31,7 +31,7 @@ struct AddrSpace {
 
   uintptr_t map_any(size_t len, int prot, int flags, int fd, int64_t offset);
   uintptr_t map_at(uintptr_t addr, size_t len, int prot, int flags, int fd,
-                    int64_t offset, UpdateFn ufn = nullptr);
+                   int64_t offset, UpdateFn ufn = nullptr);
 
   Error unmap(uintptr_t addr, size_t len, UpdateFn ufn = nullptr);
   bool query_page(uintptr_t addr, MapInfo *info) const;

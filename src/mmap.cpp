@@ -19,7 +19,8 @@ bool AddrSpace::init(uintptr_t start, size_t len, size_t pagesize) {
 
 void AddrSpace::reset() { regions_.clear(); }
 
-uintptr_t AddrSpace::map_any(size_t len, int prot, int flags, int fd, int64_t offset) {
+uintptr_t AddrSpace::map_any(size_t len, int prot, int flags, int fd,
+                             int64_t offset) {
   uint64_t pages = to_page_ceil(len);
   auto gaps = regions_.get_gaps(base_, base_ + len_);
   for (auto &gap : gaps) {
@@ -33,7 +34,7 @@ uintptr_t AddrSpace::map_any(size_t len, int prot, int flags, int fd, int64_t of
 }
 
 uintptr_t AddrSpace::map_at(uintptr_t addr, size_t len, int prot, int flags,
-                             int fd, int64_t offset, UpdateFn ufn) {
+                            int fd, int64_t offset, UpdateFn ufn) {
   uint64_t pagesize = 1ULL << p2pagesize_;
   if (addr % pagesize != 0)
     return (uintptr_t)-1;

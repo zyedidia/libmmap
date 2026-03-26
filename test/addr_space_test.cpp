@@ -263,11 +263,11 @@ static void test_map_at_callback_on_overwrite() {
             });
 
   assert(called == 1);
-  assert(cb_info.prot == 1);  // Old prot reported.
+  assert(cb_info.prot == 1); // Old prot reported.
 
   MapInfo info;
   assert(mm.query_page(addr, &info));
-  assert(info.prot == 7);  // New prot stored.
+  assert(info.prot == 7); // New prot stored.
 }
 
 static void test_unmap_partial() {
@@ -297,9 +297,7 @@ static void test_unmap_across_multiple() {
   assert(p2 != (uintptr_t)-1);
 
   int called = 0;
-  mm.unmap(kBase, kPageSize * 3, [&](uintptr_t, size_t, MapInfo) {
-    called++;
-  });
+  mm.unmap(kBase, kPageSize * 3, [&](uintptr_t, size_t, MapInfo) { called++; });
   // Two disjoint regions unmapped.
   assert(called == 2);
 
