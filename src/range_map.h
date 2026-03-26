@@ -8,7 +8,7 @@
 
 namespace mmap {
 
-template <typename K, typename V> struct Entry {
+template <class K, class V> struct Entry {
   K start;
   K end;
   V val;
@@ -16,7 +16,7 @@ template <typename K, typename V> struct Entry {
   bool empty() const { return start >= end; }
 };
 
-template <typename K, typename V> class RangeMap {
+template <class K, class V> class RangeMap {
 public:
   bool empty() const { return Map_.empty(); }
   size_t size() const { return Map_.size(); }
