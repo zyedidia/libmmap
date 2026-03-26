@@ -1,13 +1,9 @@
-#ifndef LIBMMAP_C_H
-#define LIBMMAP_C_H
+#ifndef LIBMMAP_H
+#define LIBMMAP_H
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 struct MMapAddrSpace;
 
@@ -50,8 +46,4 @@ void mmap_mark_original(struct MMapAddrSpace *mm);
 void mmap_unmap_non_original(struct MMapAddrSpace *mm, MMapUpdateFn ufn,
                              void *udata);
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif // LIBMMAP_C_H
+#endif // LIBMMAP_H

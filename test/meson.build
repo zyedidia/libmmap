@@ -1,15 +1,16 @@
-test_rangemap = executable('test_rangemap',
-  'range_map_test.cpp',
-  include_directories: include_directories('../src'),
-)
-
-test_addrspace = executable('test_addrspace',
-  'addr_space_test.cpp',
+test_avl = executable('test_avl',
+  'avl_test.c',
   link_with: libmmap,
   include_directories: include_directories('../src'),
 )
 
-test('rangemap', test_rangemap, protocol: 'tap')
-test('addrspace', test_addrspace, protocol: 'tap')
+test_mmap = executable('test_mmap',
+  'mmap_test.c',
+  link_with: libmmap,
+  include_directories: include_directories('../src'),
+)
+
+test('avl', test_avl, protocol: 'tap')
+test('mmap', test_mmap, protocol: 'tap')
 
 subdir('fuzz')

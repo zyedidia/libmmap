@@ -1,10 +1,10 @@
-project('libmmap', 'cpp', 'c',
-  default_options: ['cpp_std=c++17', 'warning_level=3'],
+project('libmmap', 'c',
+  default_options: ['c_std=c11', 'warning_level=3'],
 )
 
 srcs = files(
-  'src/mmap.cpp',
-  'src/mmap_c.cpp',
+  'src/avl.c',
+  'src/mmap.c',
 )
 
 libmmap = static_library('mmap', srcs,
