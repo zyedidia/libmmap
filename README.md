@@ -51,10 +51,17 @@ mm.unmap(p, 4096, [](uintptr_t start, size_t len, mmap::MapInfo info) {
 | `unmap(addr, len, ufn)` | Unmap a range |
 | `query_page(addr, info)` | Query mapping info for an address |
 | `protect(addr, len, prot, ufn)` | Change protection flags |
+| `mark_original()` | Mark all current mappings as original |
+| `unmap_non_original(ufn)` | Unmap all non-original mappings |
 
 Callbacks (`UpdateFn`) are invoked for each affected region during `unmap`,
-`map_at` (when overwriting), and `protect`. The callback receives the byte
-address, length, and the previous `MapInfo` of the affected region.
+`map_at` (when overwriting), `protect`, and `unmap_non_original`. The callback
+receives the byte address, length, and the previous `MapInfo` of the affected
+region.
+
+`mark_original` and `unmap_non_original` support memory reset workflows: mark
+the initial program mappings as original, allow dynamic mappings during
+execution, then call `unmap_non_original` to restore the original state.
 
 ### RangeMap
 
@@ -66,6 +73,23 @@ address, length, and the previous `MapInfo` of the affected region.
 | `overlaps(start, end)` | Check if any entry overlaps a range |
 | `get_overlapping(start, end)` | Get all entries overlapping a range |
 | `get_gaps(start, end)` | Get unmapped sub-ranges within a range |
+
+### C API
+
+A C wrapper (`mmap_c.h`) is provided for use from C code. It exposes the same
+functionality through `extern "C"` functions with an opaque `MMapAddrSpace`
+handle. C callbacks use the traditional `void *udata` pattern.
+
+```c
+#include "mmap_c.h"
+
+struct MMapAddrSpace *mm = mmap_create(0x10000, 0x100000, 4096);
+uintptr_t p = mmap_map_any(mm, 4096, PROT_READ, 0, -1, 0);
+mmap_unmap(mm, p, 4096, NULL, NULL);
+mmap_destroy(mm);
+```
+
+Link with `-lmmap -lstdc++`.
 
 ## Building
 

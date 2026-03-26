@@ -4,7 +4,7 @@ project(libmmap LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(mmap STATIC src/mmap.cpp)
+add_library(mmap STATIC src/mmap.cpp src/mmap_c.cpp)
 target_include_directories(mmap PUBLIC src)
 
 enable_testing()

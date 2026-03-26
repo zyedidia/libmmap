@@ -4,6 +4,7 @@ project('libmmap', 'cpp', 'c',
 
 srcs = files(
   'src/mmap.cpp',
+  'src/mmap_c.cpp',
 )
 
 libmmap = static_library('mmap', srcs,

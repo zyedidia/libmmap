@@ -16,7 +16,8 @@ static const size_t kPageSize = 4096;
 static const int kNumPages = kSize / kPageSize;
 
 // Read a value from the fuzz input, advancing the pointer.
-template <class T> static bool consume(const uint8_t *&data, size_t &size, T *out) {
+template <class T>
+static bool consume(const uint8_t *&data, size_t &size, T *out) {
   if (size < sizeof(T))
     return false;
   memcpy(out, data, sizeof(T));
