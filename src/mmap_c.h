@@ -32,8 +32,8 @@ struct MMapAddrSpace *mmap_create(uintptr_t start, size_t len, size_t pagesize);
 void mmap_destroy(struct MMapAddrSpace *mm);
 void mmap_reset(struct MMapAddrSpace *mm);
 
-uintptr_t mmap_map_any(struct MMapAddrSpace *mm, size_t len, int prot,
-                       int flags, int fd, int64_t offset);
+uintptr_t mmap_map_any(struct MMapAddrSpace *mm, uintptr_t hint, size_t len,
+                       int prot, int flags, int fd, int64_t offset);
 uintptr_t mmap_map_at(struct MMapAddrSpace *mm, uintptr_t addr, size_t len,
                       int prot, int flags, int fd, int64_t offset,
                       MMapUpdateFn ufn, void *udata);

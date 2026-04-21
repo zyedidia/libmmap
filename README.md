@@ -31,7 +31,7 @@ stores addresses internally in page units and converts at the API boundary.
 mmap::AddrSpace mm;
 mm.init(0x10000, 0x100000, 4096);
 
-uintptr_t p = mm.map_any(4096, PROT_READ, MAP_PRIVATE, -1, 0);
+uintptr_t p = mm.map_any(0, 4096, PROT_READ, MAP_PRIVATE, -1, 0);
 
 mm.unmap(p, 4096, [](uintptr_t start, size_t len, mmap::MapInfo info) {
     // perform actual munmap here
@@ -46,7 +46,7 @@ mm.unmap(p, 4096, [](uintptr_t start, size_t len, mmap::MapInfo info) {
 |--------|-------------|
 | `init(start, len, pagesize)` | Initialize address space |
 | `reset()` | Clear all mappings |
-| `map_any(len, prot, flags, fd, offset)` | Map at first available gap |
+| `map_any(hint, len, prot, flags, fd, offset)` | Map at `hint` if free, else first available gap (Linux-style hint; pass `0` for none) |
 | `map_at(addr, len, prot, flags, fd, offset, ufn)` | Map at fixed address |
 | `unmap(addr, len, ufn)` | Unmap a range |
 | `query_page(addr, info)` | Query mapping info for an address |
@@ -84,7 +84,7 @@ handle. C callbacks use the traditional `void *udata` pattern.
 #include "mmap_c.h"
 
 struct MMapAddrSpace *mm = mmap_create(0x10000, 0x100000, 4096);
-uintptr_t p = mmap_map_any(mm, 4096, PROT_READ, 0, -1, 0);
+uintptr_t p = mmap_map_any(mm, 0, 4096, PROT_READ, 0, -1, 0);
 mmap_unmap(mm, p, 4096, NULL, NULL);
 mmap_destroy(mm);
 ```

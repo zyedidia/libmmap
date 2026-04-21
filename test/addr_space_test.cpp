@@ -30,7 +30,7 @@ static void test_map_any_and_query() {
   AddrSpace mm;
   assert(mm.init(kBase, kSize, kPageSize));
 
-  uintptr_t p = mm.map_any(kPageSize, 1, 2, -1, 0);
+  uintptr_t p = mm.map_any(0, kPageSize, 1, 2, -1, 0);
   assert(p != (uintptr_t)-1);
 
   MapInfo info;
@@ -53,7 +53,7 @@ static void test_unmap_and_query() {
   AddrSpace mm;
   assert(mm.init(kBase, kSize, kPageSize));
 
-  uintptr_t p = mm.map_any(kPageSize, 1, 2, -1, 0);
+  uintptr_t p = mm.map_any(0, kPageSize, 1, 2, -1, 0);
   assert(p != (uintptr_t)-1);
 
   assert(mm.unmap(p, kPageSize) == Error::kOk);
@@ -93,7 +93,7 @@ static void test_protect() {
   AddrSpace mm;
   assert(mm.init(kBase, kSize, kPageSize));
 
-  uintptr_t p = mm.map_any(kPageSize, 1, 2, -1, 0);
+  uintptr_t p = mm.map_any(0, kPageSize, 1, 2, -1, 0);
   assert(p != (uintptr_t)-1);
 
   assert(mm.protect(p, kPageSize, 7) == Error::kOk);
@@ -108,7 +108,7 @@ static void test_protect_partial_split() {
   assert(mm.init(kBase, kSize, kPageSize));
 
   // Map 2 pages.
-  uintptr_t p = mm.map_any(kPageSize * 2, 1, 2, -1, 0);
+  uintptr_t p = mm.map_any(0, kPageSize * 2, 1, 2, -1, 0);
   assert(p != (uintptr_t)-1);
 
   // Change prot on first page only.
@@ -126,7 +126,7 @@ static void test_unmap_callback() {
   AddrSpace mm;
   assert(mm.init(kBase, kSize, kPageSize));
 
-  uintptr_t p = mm.map_any(kPageSize * 2, 1, 2, -1, 0);
+  uintptr_t p = mm.map_any(0, kPageSize * 2, 1, 2, -1, 0);
   assert(p != (uintptr_t)-1);
 
   int called = 0;
@@ -148,7 +148,7 @@ static void test_protect_callback() {
   AddrSpace mm;
   assert(mm.init(kBase, kSize, kPageSize));
 
-  uintptr_t p = mm.map_any(kPageSize, 1, 2, -1, 0);
+  uintptr_t p = mm.map_any(0, kPageSize, 1, 2, -1, 0);
   assert(p != (uintptr_t)-1);
 
   int called = 0;
@@ -172,9 +172,9 @@ static void test_multiple_mappings() {
   AddrSpace mm;
   assert(mm.init(kBase, kSize, kPageSize));
 
-  uintptr_t p1 = mm.map_any(kPageSize, 1, 0, -1, 0);
-  uintptr_t p2 = mm.map_any(kPageSize, 2, 0, -1, 0);
-  uintptr_t p3 = mm.map_any(kPageSize, 3, 0, -1, 0);
+  uintptr_t p1 = mm.map_any(0, kPageSize, 1, 0, -1, 0);
+  uintptr_t p2 = mm.map_any(0, kPageSize, 2, 0, -1, 0);
+  uintptr_t p3 = mm.map_any(0, kPageSize, 3, 0, -1, 0);
 
   assert(p1 != (uintptr_t)-1);
   assert(p2 != (uintptr_t)-1);
@@ -193,15 +193,15 @@ static void test_map_any_fills_space() {
   AddrSpace mm;
   assert(mm.init(kBase, kPageSize * 3, kPageSize));
 
-  uintptr_t p1 = mm.map_any(kPageSize, 1, 0, -1, 0);
-  uintptr_t p2 = mm.map_any(kPageSize, 1, 0, -1, 0);
-  uintptr_t p3 = mm.map_any(kPageSize, 1, 0, -1, 0);
+  uintptr_t p1 = mm.map_any(0, kPageSize, 1, 0, -1, 0);
+  uintptr_t p2 = mm.map_any(0, kPageSize, 1, 0, -1, 0);
+  uintptr_t p3 = mm.map_any(0, kPageSize, 1, 0, -1, 0);
   assert(p1 != (uintptr_t)-1);
   assert(p2 != (uintptr_t)-1);
   assert(p3 != (uintptr_t)-1);
 
   // No space left.
-  uintptr_t p4 = mm.map_any(kPageSize, 1, 0, -1, 0);
+  uintptr_t p4 = mm.map_any(0, kPageSize, 1, 0, -1, 0);
   assert(p4 == (uintptr_t)-1);
 }
 
@@ -209,19 +209,63 @@ static void test_map_any_reuses_gap() {
   AddrSpace mm;
   assert(mm.init(kBase, kPageSize * 3, kPageSize));
 
-  uintptr_t p1 = mm.map_any(kPageSize, 1, 0, -1, 0);
-  uintptr_t p2 = mm.map_any(kPageSize, 1, 0, -1, 0);
-  mm.map_any(kPageSize, 1, 0, -1, 0);
+  uintptr_t p1 = mm.map_any(0, kPageSize, 1, 0, -1, 0);
+  uintptr_t p2 = mm.map_any(0, kPageSize, 1, 0, -1, 0);
+  mm.map_any(0, kPageSize, 1, 0, -1, 0);
 
   // Free the middle one, then map again — should reuse the gap.
   mm.unmap(p2, kPageSize);
-  uintptr_t p4 = mm.map_any(kPageSize, 1, 0, -1, 0);
+  uintptr_t p4 = mm.map_any(0, kPageSize, 1, 0, -1, 0);
   assert(p4 == p2);
 
   // Free the first one, map 2 pages — shouldn't fit in 1-page gap.
   mm.unmap(p1, kPageSize);
-  uintptr_t p5 = mm.map_any(kPageSize * 2, 1, 0, -1, 0);
+  uintptr_t p5 = mm.map_any(0, kPageSize * 2, 1, 0, -1, 0);
   assert(p5 == (uintptr_t)-1);
+}
+
+static void test_map_any_hint_honored() {
+  AddrSpace mm;
+  assert(mm.init(kBase, kSize, kPageSize));
+
+  uintptr_t hint = kBase + kPageSize * 4;
+  uintptr_t p = mm.map_any(hint, kPageSize, 1, 0, -1, 0);
+  assert(p == hint);
+}
+
+static void test_map_any_hint_falls_back_when_taken() {
+  AddrSpace mm;
+  assert(mm.init(kBase, kSize, kPageSize));
+
+  uintptr_t taken = kBase + kPageSize * 4;
+  mm.map_at(taken, kPageSize, 1, 0, -1, 0);
+
+  // Hint overlaps an existing mapping — should fall back, not overwrite.
+  uintptr_t p = mm.map_any(taken, kPageSize, 2, 0, -1, 0);
+  assert(p != (uintptr_t)-1);
+  assert(p != taken);
+
+  MapInfo info;
+  assert(mm.query_page(taken, &info));
+  assert(info.prot == 1); // Original mapping untouched.
+}
+
+static void test_map_any_hint_unaligned_falls_back() {
+  AddrSpace mm;
+  assert(mm.init(kBase, kSize, kPageSize));
+
+  uintptr_t p = mm.map_any(kBase + 1, kPageSize, 1, 0, -1, 0);
+  assert(p != (uintptr_t)-1);
+  assert(p % kPageSize == 0);
+}
+
+static void test_map_any_hint_out_of_bounds_falls_back() {
+  AddrSpace mm;
+  assert(mm.init(kBase, kSize, kPageSize));
+
+  uintptr_t p = mm.map_any(kBase + kSize, kPageSize, 1, 0, -1, 0);
+  assert(p != (uintptr_t)-1);
+  assert(p >= kBase && p < kBase + kSize);
 }
 
 static void test_map_at_out_of_bounds() {
@@ -274,7 +318,7 @@ static void test_unmap_partial() {
   AddrSpace mm;
   assert(mm.init(kBase, kSize, kPageSize));
 
-  uintptr_t p = mm.map_any(kPageSize * 4, 1, 0, -1, 0);
+  uintptr_t p = mm.map_any(0, kPageSize * 4, 1, 0, -1, 0);
   assert(p != (uintptr_t)-1);
 
   // Unmap the middle 2 pages.
@@ -369,8 +413,8 @@ static void test_reset() {
   AddrSpace mm;
   assert(mm.init(kBase, kSize, kPageSize));
 
-  mm.map_any(kPageSize, 1, 0, -1, 0);
-  mm.map_any(kPageSize, 2, 0, -1, 0);
+  mm.map_any(0, kPageSize, 1, 0, -1, 0);
+  mm.map_any(0, kPageSize, 2, 0, -1, 0);
   mm.reset();
 
   MapInfo info;
@@ -381,7 +425,7 @@ static void test_map_any_multi_page() {
   AddrSpace mm;
   assert(mm.init(kBase, kSize, kPageSize));
 
-  uintptr_t p = mm.map_any(kPageSize * 4, 1, 0, -1, 0);
+  uintptr_t p = mm.map_any(0, kPageSize * 4, 1, 0, -1, 0);
   assert(p != (uintptr_t)-1);
 
   // All 4 pages should be queryable.
@@ -501,7 +545,7 @@ static void test_mark_original_twice() {
 }
 
 int main() {
-  printf("1..31\n");
+  printf("1..35\n");
   RUN_TEST(test_init);
   RUN_TEST(test_map_any_and_query);
   RUN_TEST(test_query_unmapped);
@@ -527,6 +571,10 @@ int main() {
   RUN_TEST(test_map_any_fills_space);
   RUN_TEST(test_map_any_reuses_gap);
   RUN_TEST(test_map_any_multi_page);
+  RUN_TEST(test_map_any_hint_honored);
+  RUN_TEST(test_map_any_hint_falls_back_when_taken);
+  RUN_TEST(test_map_any_hint_unaligned_falls_back);
+  RUN_TEST(test_map_any_hint_out_of_bounds_falls_back);
   RUN_TEST(test_multiple_mappings);
   RUN_TEST(test_reset);
   RUN_TEST(test_mark_original);

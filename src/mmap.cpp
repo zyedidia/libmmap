@@ -19,13 +19,23 @@ bool AddrSpace::init(uintptr_t start, size_t len, size_t pagesize) {
 
 void AddrSpace::reset() { regions_.clear(); }
 
-uintptr_t AddrSpace::map_any(size_t len, int prot, int flags, int fd,
-                             int64_t offset) {
+uintptr_t AddrSpace::map_any(uintptr_t hint, size_t len, int prot, int flags,
+                             int fd, int64_t offset) {
   if (len == 0)
     return (uintptr_t)-1;
   uint64_t pages = to_page_ceil(len);
   if (pages == 0)
     return (uintptr_t)-1;
+  uint64_t pagesize = 1ULL << p2pagesize_;
+  if (hint != 0 && hint % pagesize == 0) {
+    uint64_t start = to_page(hint);
+    if (is_valid(start, pages) &&
+        !regions_.overlaps(start, start + pages)) {
+      regions_.insert(start, start + pages,
+                      MapInfo{prot, flags, fd, offset, false});
+      return to_addr(start);
+    }
+  }
   auto gaps = regions_.get_gaps(base_, base_ + len_);
   for (auto &gap : gaps) {
     if (gap.second - gap.first >= pages) {

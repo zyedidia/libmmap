@@ -45,9 +45,9 @@ void mmap_destroy(struct MMapAddrSpace *mm) { delete mm; }
 
 void mmap_reset(struct MMapAddrSpace *mm) { mm->impl.reset(); }
 
-uintptr_t mmap_map_any(struct MMapAddrSpace *mm, size_t len, int prot,
-                       int flags, int fd, int64_t offset) {
-  return mm->impl.map_any(len, prot, flags, fd, offset);
+uintptr_t mmap_map_any(struct MMapAddrSpace *mm, uintptr_t hint, size_t len,
+                       int prot, int flags, int fd, int64_t offset) {
+  return mm->impl.map_any(hint, len, prot, flags, fd, offset);
 }
 
 uintptr_t mmap_map_at(struct MMapAddrSpace *mm, uintptr_t addr, size_t len,

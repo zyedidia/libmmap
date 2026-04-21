@@ -30,7 +30,8 @@ struct AddrSpace {
   bool init(uintptr_t start, size_t len, size_t pagesize);
   void reset();
 
-  uintptr_t map_any(size_t len, int prot, int flags, int fd, int64_t offset);
+  uintptr_t map_any(uintptr_t hint, size_t len, int prot, int flags, int fd,
+                    int64_t offset);
   uintptr_t map_at(uintptr_t addr, size_t len, int prot, int flags, int fd,
                    int64_t offset, UpdateFn ufn = nullptr);
 
