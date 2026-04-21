@@ -52,6 +52,7 @@ private:
     return pages;
   }
   uintptr_t to_addr(uint64_t page) const { return page << p2pagesize_; }
+  void check_in_region(uintptr_t addr, size_t len) const;
   bool is_valid(uint64_t start, uint64_t len) const {
     if (start < base_)
       return false;

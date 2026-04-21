@@ -1,8 +1,14 @@
 #include "addr_space.h"
 
 #include <algorithm>
+#include <exception>
 
 namespace mmap {
+
+void AddrSpace::check_in_region(uintptr_t addr, size_t len) const {
+  if (!is_valid(to_page(addr), to_page_ceil(len)))
+    std::terminate();
+}
 
 bool AddrSpace::init(uintptr_t start, size_t len, size_t pagesize) {
   if (pagesize == 0 || (pagesize & (pagesize - 1)) != 0)
@@ -33,6 +39,7 @@ uintptr_t AddrSpace::map_any(uintptr_t hint, size_t len, int prot, int flags,
         !regions_.overlaps(start, start + pages)) {
       regions_.insert(start, start + pages,
                       MapInfo{prot, flags, fd, offset, false});
+      check_in_region(to_addr(start), len);
       return to_addr(start);
     }
   }
@@ -42,6 +49,7 @@ uintptr_t AddrSpace::map_any(uintptr_t hint, size_t len, int prot, int flags,
       uint64_t start = gap.first;
       regions_.insert(start, start + pages,
                       MapInfo{prot, flags, fd, offset, false});
+      check_in_region(to_addr(start), len);
       return to_addr(start);
     }
   }
@@ -65,6 +73,7 @@ uintptr_t AddrSpace::map_at(uintptr_t addr, size_t len, int prot, int flags,
   unmap(addr, len, ufn);
   regions_.insert(start, start + pages,
                   MapInfo{prot, flags, fd, offset, false});
+  check_in_region(addr, len);
   return addr;
 }
 
